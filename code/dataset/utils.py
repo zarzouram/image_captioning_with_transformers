@@ -1,34 +1,58 @@
 from typing import DefaultDict, List, Dict, Tuple
-from collections import defaultdict, Counter
+from argparse import Namespace
+
+import argparse
+from collections import defaultdict
+import json
 import re
 
 captions = DefaultDict[str, List[List[str]]]
 images_w_captions = Dict[str, captions]
 
 
-class Vocabulary:
-    # map word to ints
-    def __init__(self, words_list: List[str], min_freq: int = 3) -> None:
+def parse_arguments() -> Namespace:
+    parser = argparse.ArgumentParser(
+        description="LT2326 H21 Mohamed's Project")
 
-        word_count = Counter(words_list)
-        word_filtered = [
-            word for (word, cnt) in word_count.items() if cnt > min_freq
-        ]
+    parser.add_argument(
+        "--dataset_dir",
+        type=str,
+        default="/srv/data/guszarzmo/mlproject/data/mscoco_original/",
+        help="Directory contains  MS COCO dataset files.")
 
-        self.stoi = {}
-        self.itos = {}
-        word_filtered = ["<PAD>"] + word_filtered + ["<UNK>"]
+    parser.add_argument(
+        "--json_train",
+        type=str,
+        default="caption_annotations/captions_train2017.json",
+        help="Directory have MS COCO annotations file for the train split.")
 
-        for i, word in enumerate(word_filtered):
-            self.stoi[word] = i
-            self.itos[i] = word
+    parser.add_argument(
+        "--json_val",
+        type=str,
+        default="caption_annotations/captions_val2017.json",
+        help="Directory have MS COCO annotations file for the val split.")
 
-    def __len__(self) -> int:
-        # Get vocabulary size
-        return len(self.stoi)
+    parser.add_argument("--gpu",
+                        type=int,
+                        default=-1,
+                        help="GPU device to be used")
+
+    args = parser.parse_args()
+
+    return args
 
 
-def get_captions(annotations: list) -> Tuple[captions, List[str]]:
+def load_json(json_path: str) -> Tuple[list, List[str]]:
+    with open(json_path) as json_file:
+        data = json.load(json_file)
+
+    annotations = data["annotations"]
+    images = data["images"]
+
+    return annotations, images
+
+
+def get_captions(annotations: list) -> captions:
     """ Images and thier captions are separated into two list of dicts.
 
     json_path: a string of the mscoco annotation file
@@ -36,16 +60,14 @@ def get_captions(annotations: list) -> Tuple[captions, List[str]]:
 
     # collect captions by image id
     captions_dict = defaultdict(list)
-    all_captions = []
     for annton in annotations:
         captions = [
             s for s in re.split(r"(\W)", annton["caption"]) if s.strip()
         ]
         captions = ["<SOS>"] + captions + ["<EOS>"]
-        all_captions.extend(captions)
         captions_dict[annton["image_id"]].append(captions)
 
-    return captions_dict, all_captions
+    return captions_dict
 
 
 def combine_image_captions(images: List[str],
