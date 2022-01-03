@@ -1,13 +1,12 @@
-from typing import DefaultDict, List, Dict, Tuple
+from typing import List, Tuple
 from argparse import Namespace
+from numpy.typing import NDArray
 
 import argparse
-from collections import defaultdict
 import json
-import re
+import h5py
 
-captions = DefaultDict[str, List[List[str]]]
-images_w_captions = Dict[str, captions]
+import numpy as np
 
 
 def parse_arguments() -> Namespace:
@@ -32,10 +31,23 @@ def parse_arguments() -> Namespace:
         default="caption_annotations/captions_val2017.json",
         help="Directory have MS COCO annotations file for the val split.")
 
-    parser.add_argument("--gpu",
-                        type=int,
-                        default=-1,
-                        help="GPU device to be used")
+    parser.add_argument(
+        "--image_train",
+        type=str,
+        default="images/train2017",
+        help="Directory have MS COCO images files for the train split.")
+
+    parser.add_argument(
+        "--image_val",
+        type=str,
+        default="images/val2017",
+        help="Directory have MS COCO image files for the val split.")
+
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="/srv/data/guszarzmo/mlproject/data/mscoco_h5/",
+        help="Directory have MS COCO image files for the val split.")
 
     args = parser.parse_args()
 
@@ -52,39 +64,16 @@ def load_json(json_path: str) -> Tuple[list, List[str]]:
     return annotations, images
 
 
-def get_captions(annotations: list) -> captions:
-    """ Images and thier captions are separated into two list of dicts.
-
-    json_path: a string of the mscoco annotation file
-    """
-
-    # collect captions by image id
-    captions_dict = defaultdict(list)
-    for annton in annotations:
-        captions = [
-            s for s in re.split(r"(\W)", annton["caption"]) if s.strip()
-        ]
-        captions = ["<SOS>"] + captions + ["<EOS>"]
-        captions_dict[annton["image_id"]].append(captions)
-
-    return captions_dict
+def write_json(json_path: str, data) -> None:
+    with open(json_path, 'w') as json_file:
+        json.dump(data, json_file, indent=4)
 
 
-def combine_image_captions(images: List[str],
-                           captions_dict: captions) -> images_w_captions:
-    """ Images and thier captions are separated into two list of dicts.
+def write_h5_dataset(write_path: str, data: NDArray, name: str,
+                     type: str) -> None:
 
-    json_path: a string of the mscoco annotation file
-    """
-
-    # collect image and captions
-    images_w_captions = {}
-    for img in images:
-        img_id = img["id"]
-
-        images_w_captions[img["file_name"]] = {
-            "image_id": img_id,
-            "captions": captions_dict[img_id]
-        }
-
-    return images_w_captions
+    with h5py.File(write_path, "w") as h5f:
+        h5f.create_dataset(name=name,
+                           data=data,
+                           shape=np.shape(data),
+                           dtype=type)

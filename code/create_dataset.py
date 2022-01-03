@@ -1,20 +1,21 @@
-from typing import List, DefaultDict, Dict, Tuple
+import os
+from dataset.custom_types import ImagesAndCaptions
 from argparse import Namespace
 
 from pathlib import Path
 from itertools import chain
 
-from sklearn.model_selection import train_test_split
+from utils import seed_everything
+from dataset.utils import parse_arguments, load_json, write_h5_dataset
+from dataset.utils import write_json
+from dataset.dataset_helper import get_captions, combine_image_captions
+from dataset.dataset_helper import run_create_arrays
+from dataset.dataset_helper import split_dataset, buil_vocab
 
-from dataset.vocab import Vocabulary
-from dataset.utils import get_captions, combine_image_captions, load_json
-from dataset.utils import parse_arguments
-
-captions_t = DefaultDict[str, List[List[str]]]
-images_w_captions_t = Dict[str, captions_t]
+# https://pytorch.org/docs/stable/notes/randomness.html
 
 
-def get_data(json_path: str) -> images_w_captions_t:
+def get_data(json_path: str, imgs_dir: str) -> ImagesAndCaptions:
     """Load annations json file and return a images ids with its captions in
         the following format:
             image_name: {image_id: list of captions tokens}
@@ -22,70 +23,57 @@ def get_data(json_path: str) -> images_w_captions_t:
 
     annotations, images_id = load_json(json_path)
     captions = get_captions(annotations)
-    images_w_captions = combine_image_captions(images_id, captions)
+    images_w_captions = combine_image_captions(images_id, captions, imgs_dir)
 
     return images_w_captions
 
 
-def split_dataset(
-    original_train_split: images_w_captions_t,
-    original_val_split: images_w_captions_t,
-    test_perc: int = 0.15,
-    val_perc: int = 0.15
-) -> Tuple[images_w_captions_t, images_w_captions_t, images_w_captions_t]:
-    """The size of the original validation split is 4% of the dataset. The
-        function calculate the remaining percentage to have a test set of size
-        15% of the dataset. Then split the remaining to have a validation
-        dataset of 15%.
-    """
-    train_perc = 1 - (test_perc + val_perc)
-    original_val_size = len(original_val_split)
-    original_train_size = len(original_train_split)
-    ds_size = original_val_size + original_train_size
-
-    # Calculate the remaining size to have 15% of test split (original_val +
-    # test_makup)
-    test_makup_size = int(ds_size * val_perc) - original_val_size
-    train_size = int((train_perc / (1 - test_perc)) *
-                     (ds_size - original_val_size - test_makup_size))
-
-    original_train_list = list(original_train_split.items())
-    test_makup, train_val = train_test_split(original_train_list,
-                                             train_size=test_makup_size,
-                                             random_state=42,
-                                             shuffle=True)
-
-    test_split = {**dict(test_makup), **original_val_split}  # merge two dicts
-
-    train_split, val_split = train_test_split(train_val,
-                                              train_size=train_size,
-                                              random_state=42,
-                                              shuffle=True)
-
-    return dict(train_split), dict(val_split), test_split
-
-
-def buil_vocab(captions: List[chain]) -> Vocabulary:
-    all_words = list(chain.from_iterable(captions))
-    return Vocabulary(all_words)
-
-
 if __name__ == "__main__":
+
+    SEED = 9001
+    seed_everything(seed=SEED)
 
     # parse argument command
     args = parse_arguments()  # type: Namespace
 
-    ds_dir = Path(args.dataset_dir)  # dataset directory
+    # process some directories
+    ds_dir = Path(os.path.expanduser(args.dataset_dir))
+    output_dir = Path(os.path.expanduser(args.output_dir))
+    train_ann_path = str(ds_dir / args.json_train)  # train annotations path
+    val_ann_path = str(ds_dir / args.json_val)  # val annotations path
+    train_imgs_dir = str(ds_dir / args.image_train)  # train images path
+    val_imgs_dir = str(ds_dir / args.image_val)  # val images path
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    file_path = str(ds_dir / args.json_train)  # train ann path
-    images_captions = get_data(file_path)  # process train anntn file
+    # process annotation files
+    print("Process annotation files...")
+    images_captions = get_data(train_ann_path, train_imgs_dir)
+    images_captions_test = get_data(val_ann_path, val_imgs_dir)
 
-    file_path = str(ds_dir / args.json_val)
-    images_captions_test = get_data(file_path)  # process val anntn file
-
-    # split dataset
+    # split data
     train_ds, val_ds, test_ds = split_dataset(images_captions,
-                                              images_captions_test)
-    # Create vocab from train dataset srt OOV to <UNK>
+                                              images_captions_test, SEED)
+
+    # Create vocab from train dataset set OOV to <UNK>, then encode captions
     captions = [chain.from_iterable(d["captions"]) for d in train_ds.values()]
     vocab = buil_vocab(captions)
+    print("Processing finished.\n")
+
+    # Create numpy arrays for images, list of list of list of str for captions
+    # after encoding them and list of list for captions lengthes then save them
+    for ds, split in zip([train_ds, val_ds, test_ds], ["train", "val", "test"]):
+        # create arrays
+        arrs = run_create_arrays(dataset=ds, vocab=vocab, split=split)
+        images, captions_encoded, lengthes = arrs
+        print(f"Number of samples in the {split} split:   {images.shape[0]}")
+
+        # saving dataset
+        print(f"Saving {split} dataset ...")
+        write_h5_dataset(write_path=str(output_dir / f"{split}_images.hdf5"),
+                         name=split,
+                         data=images,
+                         type="uint8")
+
+        write_json(str(output_dir / f"{split}_captions.json"), captions_encoded)
+        write_json(str(output_dir / f"{split}_lengthes.json"), lengthes)
+        print(f"Saving {split} dataset finished.\n")
