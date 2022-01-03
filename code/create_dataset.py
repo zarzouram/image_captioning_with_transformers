@@ -77,3 +77,5 @@ if __name__ == "__main__":
         write_json(str(output_dir / f"{split}_captions.json"), captions_encoded)
         write_json(str(output_dir / f"{split}_lengthes.json"), lengthes)
         print(f"Saving {split} dataset finished.\n")
+
+print("\nCreating dataset files finished.\n")

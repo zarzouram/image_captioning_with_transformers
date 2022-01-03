@@ -11,10 +11,11 @@ class DictWithDefault(dict):
         dd["a"] => 1
     """
     def __init__(self, default, *args):
-        self.default = default
+        self.default = default  # set a default value to return
         super(DictWithDefault, self).__init__(*args)
 
     def __missing__(self, key):
+        # key not in the dict return the default value
         return self.default
 
     def __setitem__(self, key, value):
@@ -22,15 +23,20 @@ class DictWithDefault(dict):
 
 
 class Vocabulary:
-    # map word to ints
+    """map word to ints, and ints to word. If word does not exist return
+    the index of the <UNK> "unkown token"
+    """
     def __init__(self, words_list: List[str], min_freq: int = 3) -> None:
 
+        # remove the words that are repeated less than or equal to min_fre
         word_count = Counter(words_list)
         word_filtered = [
             word for (word, cnt) in word_count.items() if cnt > min_freq
         ]
-        word_filtered = ["<PAD>"] + word_filtered
+        word_filtered = ["<PAD>"] + word_filtered  # add PAD token, index=0
 
+        # Setting "string to index" stoi and "index to string" itos
+        # dectionaries
         self.stoi = DictWithDefault(default=len(word_filtered))
         self.itos = DictWithDefault(default="<UNK>")
 

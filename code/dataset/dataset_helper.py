@@ -66,6 +66,7 @@ def load_images(image_path: str,
 
 def encode_captions(captions: List[List[str]],
                     vocab: Vocabulary) -> Tuple[List[List[int]], List[int]]:
+    """Encode captions text to the respective indices"""
     encoded = []
     lengthes = []
     for caption in captions:
@@ -87,10 +88,10 @@ def split_dataset(
         15% of the dataset. Then split the remaining to have a validation
         dataset of 15%.
     """
-    train_perc = 1 - (test_perc + val_perc)
+    train_perc = 1 - (test_perc + val_perc)  # training %
     original_val_size = len(original_val_split)
     original_train_size = len(original_train_split)
-    ds_size = original_val_size + original_train_size
+    ds_size = original_val_size + original_train_size  # dataset size
 
     # Calculate the remaining size to have 15% of test split (original_val +
     # test_makup)
@@ -106,6 +107,7 @@ def split_dataset(
 
     test_split = {**dict(test_makup), **original_val_split}  # merge two dicts
 
+    # Split the remaining to have test, train: 15%, 70%
     train_split, val_split = train_test_split(train_val,
                                               train_size=train_size,
                                               random_state=SEED,
@@ -122,6 +124,7 @@ def buil_vocab(captions: List[chain]) -> Vocabulary:
 def create_input_arrays(
         dataset: Tuple[str, Captions],
         vocab: Vocabulary) -> Tuple[NDArray, List[List[int]], List[int]]:
+    """load images and encode captions text"""
 
     image = load_images(dataset[0], 256, 256)
     captions_encoded, lengthes = encode_captions(dataset[1]["captions"], vocab)
@@ -129,11 +132,15 @@ def create_input_arrays(
     return image, captions_encoded, lengthes
 
 
-def run_create_arrays(dataset: ImagesAndCaptions, vocab: Vocabulary,
-                      split: str, num_proc: int = 4):
+def run_create_arrays(
+    dataset: ImagesAndCaptions,
+    vocab: Vocabulary,
+    split: str,
+    num_proc: int = 4
+) -> Tuple[NDArray, List[List[List[int]]], List[List[int]]]:
+
     # Prepare arrays: images, captions encoded and captions lenghtes
     f = partial(create_input_arrays, vocab=vocab)
-    # train split
     num_proc = mp.cpu_count()
     with mp.Pool(processes=num_proc) as pool:
         arrays = list(
