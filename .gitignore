@@ -128,4 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-code/test.ipynb
+# code/test/
+*test*
+runs/
+.data/

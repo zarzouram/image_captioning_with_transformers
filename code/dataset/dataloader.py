@@ -21,8 +21,8 @@ class HDF5Dataset(data.Dataset):
         super().__init__()
 
         with h5py.File(hdf5_path) as h5_file:
-            images_nm, = h5_file.keys()
-            self.images = np.array(h5_file[images_nm])
+            self.images_nm, = h5_file.keys()
+            self.images = np.array(h5_file[self.images_nm])
 
         with open(captions_path, 'r') as json_file:
             self.captions = json.load(json_file)
@@ -33,12 +33,23 @@ class HDF5Dataset(data.Dataset):
         # PyTorch transformation pipeline for the image (normalizing, etc.)
         self.transform = transform
 
-    def __getitem__(self, index):
+    def __getitem__(self, i):
         # get data
-        captn_id = np.random.randint(0, 5)
-        X = torch.as_tensor(self.images[index])
-        y = torch.as_tensor(self.captions[index][captn_id], dtype=torch.long)
-        ls = torch.as_tensor(self.lengthes[index][captn_id])
+        # Images
+        X = torch.as_tensor(self.images[i], dtype=torch.float) / 255.
+        if self.transform:
+            X = self.transform(X)
+
+        if self.images_nm == "train":
+            # Captions and Lengthes
+            captn_id = np.random.randint(0, 5)
+            y = torch.as_tensor(self.captions[i][captn_id], dtype=torch.long)
+            ls = torch.as_tensor(self.lengthes[i][captn_id], dtype=torch.long)
+
+        else:
+            y = [torch.as_tensor(c, dtype=torch.long) for c in self.captions[i]]
+            y = pad_sequence(y)
+            ls = torch.as_tensor(self.lengthes[i], dtype=torch.long)
 
         return X, y, ls
 
@@ -60,8 +71,8 @@ def collate_fn_padd(batch):
     X, y, ls = zip(*batch)
     y = pad_sequence(y, batch_first=True)
 
-    X = torch.FloatTensor(torch.stack(X) / 255.)
-    ls = torch.LongTensor(torch.stack(ls))
+    X = torch.stack(X)
+    ls = torch.stack(ls)
 
     return X, y, ls
 
@@ -80,9 +91,9 @@ if __name__ == "__main__":
     g = torch.Generator()
     g.manual_seed(SEED)
 
-    img_p = "/srv/data/guszarzmo/mlproject/data/mscoco_h5/test_images.hdf5"
-    cap_p = "/srv/data/guszarzmo/mlproject/data/mscoco_h5/test_captions.json"
-    ls_p = "/srv/data/guszarzmo/mlproject/data/mscoco_h5/test_lengthes.json"
+    img_p = "/srv/data/guszarzmo/mlproject/data/mscoco_h5/train_images.hdf5"
+    cap_p = "/srv/data/guszarzmo/mlproject/data/mscoco_h5/train_captions.json"
+    ls_p = "/srv/data/guszarzmo/mlproject/data/mscoco_h5/train_lengthes.json"
     train = HDF5Dataset(img_p, cap_p, ls_p)
 
     num_epochs = 2
