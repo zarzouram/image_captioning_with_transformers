@@ -6,6 +6,8 @@ import random
 
 import numpy as np
 import torch
+from torch import Tensor
+from torch.nn import ConstantPad1d
 from torch.nn.utils.rnn import pad_sequence
 # from torchvision.transforms import transforms
 from torch.utils import data
@@ -47,7 +49,9 @@ class HDF5Dataset(data.Dataset):
             ls = torch.as_tensor(self.lengthes[i][captn_id], dtype=torch.long)
 
         else:
-            y = [torch.as_tensor(c, dtype=torch.long) for c in self.captions[i]]
+            y = [
+                torch.as_tensor(c, dtype=torch.long) for c in self.captions[i]
+            ]
             y = pad_sequence(y)
             ls = torch.as_tensor(self.lengthes[i], dtype=torch.long)
 
@@ -57,27 +61,37 @@ class HDF5Dataset(data.Dataset):
         return self.images.shape[0]
 
 
-def seed_worker(worker_id):
-    worker_seed = torch.initial_seed() % 2**32
-    np.random.seed(worker_seed)
-    random.seed(worker_seed)
+class collate_padd(object):
 
+    def __init__(self, max_len, pad_id=0.):
+        self.max_len = max_len
+        self.pad = pad_id
 
-def collate_fn_padd(batch):
-    '''
-    Padds batch of variable length
+    def __call__(self, batch):
+        """
+        Padds batch of variable lengthes to a fixed length (max_len)
+        """
+        X, y, ls = zip(*batch)
 
-    '''
-    X, y, ls = zip(*batch)
-    y = pad_sequence(y, batch_first=True)
+        y = pad_sequence(y, batch_first=True)  # type: Tensor
+        pad_right = self.max_len - y.size()[1]
+        if pad_right < 0:
+            y = torch.hstack((y[:, :self.max_len - 1], y[:, -1].unsqueeze(1)))
+        elif pad_right > 0:
+            if len(y.size()) == 3:  # test and val split y = [B, max_seq_len, 5]
+                y = y.permute(0, 2, 1)  # [B, 5, max_seq_len]
+            y = ConstantPad1d((0, pad_right), value=self.pad)(y)
 
-    X = torch.stack(X)
-    ls = torch.stack(ls)
+        X = torch.stack(X)
+        ls = torch.stack(ls)
+        if len(y.size()) == 3:  # change back the y size [B,  max_seq_len, 5]
+            y = y.permute(0, 2, 1)
 
-    return X, y, ls
+        return X, y, ls
 
 
 if __name__ == "__main__":
+    from utils import seed_worker
 
     SEED = 9001
     random.seed(SEED)
@@ -105,7 +119,7 @@ if __name__ == "__main__":
         "generator": g
     }
     data_loader = data.DataLoader(train,
-                                  collate_fn=collate_fn_padd,
+                                  collate_fn=collate_padd(30),
                                   **loader_params)
 
     for i in range(num_epochs):

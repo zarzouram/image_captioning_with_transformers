@@ -1,4 +1,3 @@
-from typing import Tuple
 from torch import nn, Tensor
 from torch.nn import MultiheadAttention
 
@@ -40,15 +39,14 @@ class CNNFeedForward(nn.Module):
         """
         param:
         inputs: Output from multi head attension layere.
-                Tensor [batch_size, encode_size^2=196, embed_dim=512]
+                Tensor [encode_size^2=196, batch_size, embed_dim=512]
 
         output: output tensor.
-                Tensor [batch_size, encode_size^2=196, embed_dim=512]
+                Tensor [encode_size^2=196, batch_size, embed_dim=512]
         """
-        residual = inputs  # type: Tensor
-        output = self.conv2(self.relu(self.conv1(inputs)))
+        output = self.conv2(self.relu(self.conv1(inputs.permute(1, 0, 2))))
         output = self.dropout(output)  # type: Tensor
-        return self.layer_norm(output + residual)
+        return self.layer_norm(output.permute(1, 0, 2) + inputs)
 
 
 class EncSelfAttension(nn.Module):
@@ -73,26 +71,23 @@ class EncSelfAttension(nn.Module):
 
     def forward(self, enc_inputs: Tensor) -> Tensor:
         """
+        param:
         enc_inputs:     Input images to encode
                         Tensor
-                        [batch_size, encode_size * encode_size, embed_dim]
+                        [encode_size^2=196, batch_size, embed_dim]
 
         outputs:
         enc_outputs:    Encoded image
                         Tensor
-                        [batch_size, encode_size * encode_size, embed_dim]
+                        [encode_size^2=196, batch_size, embed_dim]
 
         attn:           Attension weights
-                        [batch_size, encode_size^2=196, encode_size^2=196]
+                        [encode_size^2=196, batch_size, encode_size^2=196]
         """
 
-        residual = enc_inputs
-
-        # enc_inputs: [image_encode_size^2=196, batch_size, img_embed_dim=512]
-        enc_inputs = enc_inputs.permute(1, 0, 2)  # type: Tensor
         enc_outputs, _ = self.multi_head_attn(enc_inputs, enc_inputs,
                                               enc_inputs)
-        enc_outputs = enc_outputs.permute(1, 0, 2) + residual  # type: Tensor
+        enc_outputs = enc_outputs + enc_inputs
         enc_outputs = self.layer_norm(enc_outputs)
 
         return enc_outputs
@@ -101,7 +96,7 @@ class EncSelfAttension(nn.Module):
 class EncoderLayer(nn.Module):
 
     def __init__(self, img_encode_size: int, img_embed_dim: int,
-                 num_heads: int, dropout: float):
+                 feedforward_dim: int, num_heads: int, dropout: float):
         super(EncoderLayer, self).__init__()
         """
         param:
@@ -120,22 +115,20 @@ class EncoderLayer(nn.Module):
                                               dropout=dropout)
         self.cnn_ff = CNNFeedForward(encode_size=img_encode_size,
                                      embed_dim=img_embed_dim,
-                                     feedforward_dim=512,
+                                     feedforward_dim=feedforward_dim,
                                      dropout=dropout)
 
-    def forward(self, enc_inputs: Tensor) -> Tuple[Tensor, Tensor]:
+    def forward(self, enc_inputs: Tensor) -> Tensor:
         """
+        param:
         enc_inputs:     Input images to encode
                         Tensor
-                        [batch_size, encode_size^2=196, embed_dim=512]
+                        [encode_size^2=196, batch_size, embed_dim=512]
 
         outputs:
         enc_outputs:    Encoded image
                         Tensor
-                        [batch_size, encode_size^2=196, embed_dim=512]
-
-        attn:           Attension weights
-                        [batch_size, encode_size^2=196, encode_size^2=196]
+                        [encode_size^2=196, batch_size, embed_dim=512]
         """
 
         enc_outputs = self.enc_self_attn(enc_inputs)
@@ -146,7 +139,7 @@ class EncoderLayer(nn.Module):
 if __name__ == "__main__":
     import torch
 
-    src_img = torch.rand(10, 196, 512)  # B, encode, embed
-    m_test = EncoderLayer(196, 512, 8, 0.1)
+    src_img = torch.rand(196, 10, 512)  # B, encode, embed
+    m_test = EncoderLayer(196, 512, 512, 8, 0.1)
     valus = m_test(src_img)
     print(valus.size())

@@ -1,3 +1,4 @@
+import random
 from typing import List, Tuple
 from argparse import Namespace
 from numpy.typing import NDArray
@@ -7,6 +8,7 @@ import json
 import h5py
 
 import numpy as np
+import torch
 
 
 def parse_arguments() -> Namespace:
@@ -77,3 +79,10 @@ def write_h5_dataset(write_path: str, data: NDArray, name: str,
                            data=data,
                            shape=np.shape(data),
                            dtype=type)
+
+
+def seed_worker(worker_id):
+    # ref: https://pytorch.org/docs/stable/notes/randomness.html
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)

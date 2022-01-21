@@ -12,8 +12,6 @@ from dataset.dataset_helper import get_captions, combine_image_captions
 from dataset.dataset_helper import run_create_arrays
 from dataset.dataset_helper import split_dataset, buil_vocab
 
-# https://pytorch.org/docs/stable/notes/randomness.html
-
 
 def get_data(json_path: str, imgs_dir: str) -> ImagesAndCaptions:
     """Load annations json file and return a images ids with its captions in
