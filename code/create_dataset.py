@@ -5,12 +5,12 @@ from argparse import Namespace
 from pathlib import Path
 from itertools import chain
 
-from utils import seed_everything
+from utils.train_utils import seed_everything
 from dataset.utils import parse_arguments, load_json, write_h5_dataset
 from dataset.utils import write_json
 from dataset.dataset_helper import get_captions, combine_image_captions
 from dataset.dataset_helper import run_create_arrays
-from dataset.dataset_helper import split_dataset, buil_vocab
+from dataset.dataset_helper import split_dataset, build_vocab
 
 
 def get_data(json_path: str, imgs_dir: str) -> ImagesAndCaptions:
@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
     # Create vocab from train dataset set OOV to <UNK>, then encode captions
     captions = [chain.from_iterable(d["captions"]) for d in train_ds.values()]
-    vocab = buil_vocab(captions)
+    vocab = build_vocab(captions)
     print("Processing finished.\n")
 
     # Create numpy arrays for images, list of list of list of str for captions
@@ -75,5 +75,7 @@ if __name__ == "__main__":
         write_json(str(output_dir / f"{split}_captions.json"), captions_encoded)
         write_json(str(output_dir / f"{split}_lengthes.json"), lengthes)
         print(f"Saving {split} dataset finished.\n")
+
+    vocab.save_vocab(str(output_dir / "vocab.json"))
 
 print("\nCreating dataset files finished.\n")

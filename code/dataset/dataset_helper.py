@@ -2,7 +2,7 @@ from typing import List, Tuple
 from numpy.typing import NDArray
 from .custom_types import Captions, ImagesAndCaptions
 
-from collections import defaultdict
+from collections import defaultdict, Counter
 from itertools import chain
 import multiprocessing as mp
 from functools import partial
@@ -116,9 +116,9 @@ def split_dataset(
     return dict(train_split), dict(val_split), test_split
 
 
-def buil_vocab(captions: List[chain]) -> Vocabulary:
+def build_vocab(captions: List[chain]) -> Vocabulary:
     all_words = list(chain.from_iterable(captions))
-    return Vocabulary(all_words)
+    return Vocabulary(dict(Counter(all_words)))
 
 
 def create_input_arrays(

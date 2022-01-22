@@ -1,0 +1,38 @@
+{
+    "hyperparams": {
+        "image_encoder": {
+            "encode_size": 14,
+            "embed_dim": 512
+        },
+        "transformer": {
+            "d_model": 512,
+            "enc_ff_dim": 512,
+            "dec_ff_dim": 2048,
+            "enc_n_layers": 2,
+            "dec_n_layers": 4,
+            "enc_n_heads": 8,
+            "dec_n_heads": 8,
+            "dropout": 0.1
+        }
+    },
+    "pathes": {
+        "embedding_path": "/srv/data/guszarzmo/embeddings/Glove/glove.6B.300d.txt",
+        "checkpoints": "/srv/data/guszarzmo/mlproject/checkpoints/"
+    },
+    "dataloader_parms": {
+        "batch_size": 32,
+        "shuffle": true,
+        "num_workers": 4
+    },
+    "train_parms": {
+        "grad_clip": 5.0,
+        "alpha_c": 1.0,
+        "stop_criteria": 25,
+        "tune_encoder": 35,
+        "epochs": 100,
+        "encoder_lr": 1e-4,
+        "transformer_lr": 1e-4
+    },
+
+    "max_len": 52
+}

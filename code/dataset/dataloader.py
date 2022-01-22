@@ -63,9 +63,10 @@ class HDF5Dataset(data.Dataset):
 
 class collate_padd(object):
 
-    def __init__(self, max_len, pad_id=0.):
+    def __init__(self, max_len, device, pad_id=0.):
         self.max_len = max_len
         self.pad = pad_id
+        self.device = device
 
     def __call__(self, batch):
         """
@@ -75,15 +76,16 @@ class collate_padd(object):
 
         y = pad_sequence(y, batch_first=True)  # type: Tensor
         pad_right = self.max_len - y.size()[1]
-        if pad_right < 0:
+        if pad_right < 0:  # truncate if len > max_len
             y = torch.hstack((y[:, :self.max_len - 1], y[:, -1].unsqueeze(1)))
-        elif pad_right > 0:
+        elif pad_right > 0:  # pad to the max_len
             if len(y.size()) == 3:  # test and val split y = [B, max_seq_len, 5]
                 y = y.permute(0, 2, 1)  # [B, 5, max_seq_len]
             y = ConstantPad1d((0, pad_right), value=self.pad)(y)
 
-        X = torch.stack(X)
-        ls = torch.stack(ls)
+        y = y.to(self.device)
+        X = torch.stack(X).to(self.device)
+        ls = torch.stack(ls).to(self.device)
         if len(y.size()) == 3:  # change back the y size [B,  max_seq_len, 5]
             y = y.permute(0, 2, 1)
 

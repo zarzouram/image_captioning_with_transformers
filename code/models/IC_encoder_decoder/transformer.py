@@ -4,9 +4,9 @@ from typing import Tuple
 import torch
 from torch import nn, Tensor
 
-from encoder_layers import EncoderLayer
-from decoder_layers import DecoderLayer
-from pe import PositionalEncoding
+from .encoder_layers import EncoderLayer
+from .decoder_layers import DecoderLayer
+from .pe import PositionalEncoding
 
 
 class Encoder(nn.Module):
