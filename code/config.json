@@ -28,7 +28,6 @@
         "grad_clip": 5.0,
         "alpha_c": 1.0,
         "stop_criteria": 25,
-        "tune_encoder": 35,
         "epochs": 100,
         "encoder_lr": 1e-4,
         "transformer_lr": 1e-4

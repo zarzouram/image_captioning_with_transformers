@@ -121,6 +121,7 @@ class Decoder(nn.Module):
         # create masks, then pass to decoder
         tgt_pad_mask = (tgt_cptn != self.pad_id)
         tgt_mask = self.get_attn_subsequent_mask(tgt_cptn.size()[1])
+        tgt_mask = tgt_mask.to(tgt_cptn.device)
 
         # encode captions + pos enc
         # (B, max_len) -> (B, max_len, d_model) -> (max_len, B, d_model)
@@ -184,9 +185,9 @@ class Transformer(nn.Module):
         # encode, decode, predict
         images_encoded = self.encoder(images.permute(1, 0, 2))
         tgt_cptn, attns = self.decoder(captions, images_encoded)
-        predictions = self.predictor(tgt_cptn)
+        predictions = self.predictor(tgt_cptn).permute(1, 0, 2)
 
-        return predictions, attns
+        return predictions.contiguous(), attns.contiguous()
 
 
 if __name__ == "__main__":

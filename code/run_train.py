@@ -3,10 +3,12 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 from torchvision.transforms import Normalize, Compose
+from torch.optim import Adam
 
 from models.cnn_encoder import ImageEncoder
 from models.IC_encoder_decoder.transformer import Transformer
 
+from trainer import Trainer
 from dataset.dataloader import HDF5Dataset, collate_padd
 from dataset.vocab import Vocabulary
 from utils.train_utils import parse_arguments, seed_everything, load_json
@@ -57,6 +59,7 @@ if __name__ == "__main__":
     # load vocab
     vocab = Vocabulary()
     vocab.load_vocab(str(Path(dataset_dir) / "vocab.json"))
+    pad_id = vocab.stoi["<pad>"]
 
     # SEED
     SEED = 9001
@@ -70,39 +73,50 @@ if __name__ == "__main__":
     max_len = config["max_len"]
     train_ds, val_ds = get_datasets(dataset_dir)
     train_iter = DataLoader(train_ds,
-                            collate_fn=collate_padd(max_len, device),
+                            collate_fn=collate_padd(max_len, pad_id),
                             pin_memory=True,
                             **loader_params)
-    train_iter = DataLoader(val_ds,
-                            collate_fn=collate_padd(max_len, device),
-                            batch_size=1,
-                            pin_memory=True,
-                            num_workers=1,
-                            shuffle=True)
+    val_iter = DataLoader(val_ds,
+                          collate_fn=collate_padd(max_len, pad_id),
+                          batch_size=1,
+                          pin_memory=True,
+                          num_workers=1,
+                          shuffle=True)
     print("loading dataset finished.\n")
 
     # --------------- Construct models, optimizers --------------- #
-    print("Construct models...")
+    print("Construct models")
     # prepare some hyperparameters
     image_enc_hyperparms = config["hyperparams"]["image_encoder"]
+    image_seq_len = int(image_enc_hyperparms["encode_size"]**2)
+
+    vocab_size = vocab.__len__()
     transformer_hyperparms = config["hyperparams"]["transformer"]
-    transformer_hyperparms["vocab_size"] = vocab.__len__()
-    transformer_hyperparms["pad_id"] = vocab.stoi["<pad>"]
-    img_encode_size = int(image_enc_hyperparms["encode_size"]**2)
-    transformer_hyperparms["img_encode_size"] = img_encode_size
-    transformer_hyperparms["max_len"] = max_len
+    transformer_hyperparms["vocab_size"] = vocab_size
+    transformer_hyperparms["pad_id"] = pad_id
+    transformer_hyperparms["img_encode_size"] = image_seq_len
+    transformer_hyperparms["max_len"] = max_len - 1
+
     # construct models
-    image_enc = ImageEncoder(**image_enc_hyperparms).to(device)
+    image_enc = ImageEncoder(**image_enc_hyperparms)
     image_enc.fine_tune(True)
-    transformer = Transformer(**transformer_hyperparms).to(device)
+    transformer = Transformer(**transformer_hyperparms)
+
     # Optimizer
     image_enc_lr = config["train_parms"]["encoder_lr"]
-    transformer_lr = config["train_parms"]["transformer_lr"]
     parms2update = filter(lambda p: p.requires_grad, image_enc.parameters())
-    image_encoder_optim = torch.optim.Adam(params=parms2update,
-                                           lr=image_enc_lr)
-    parms2update = filter(lambda p: p.requires_grad, transformer.parameters())
-    transformer_optim = torch.optim.Adam(params=parms2update,
-                                         lr=transformer_lr)
+    image_encoder_optim = Adam(params=parms2update, lr=image_enc_lr)
+
+    transformer_lr = config["train_parms"]["transformer_lr"]
+    transformer_optim = Adam(params=transformer.parameters(),
+                             lr=transformer_lr)
+
+    # Start train and evaluation
+    print("training models...\n")
+    train = Trainer(optims=[image_encoder_optim, transformer_optim],
+                    epochs=config["train_parms"]["epochs"],
+                    device=device,
+                    pad_id=pad_id)
+    train.run(image_enc, transformer, [train_iter, val_iter])
 
     print("done")
