@@ -26,12 +26,17 @@
     },
     "train_parms": {
         "grad_clip": 5.0,
-        "alpha_c": 1.0,
-        "stop_criteria": 25,
+        "lambda_c": 1.0,
         "epochs": 100,
+        "val_interval": 5,
+        "stop_criteria": 25
+    },
+    "optim_params": {
         "encoder_lr": 1e-4,
         "transformer_lr": 1e-4
     },
 
-    "max_len": 52
+    "max_len": 52,
+    "min_freq": 3,
+    "seed": 9001
 }

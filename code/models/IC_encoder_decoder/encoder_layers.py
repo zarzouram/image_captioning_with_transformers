@@ -39,10 +39,10 @@ class CNNFeedForward(nn.Module):
         """
         param:
         inputs: Output from multi head attension layere.
-                Tensor [encode_size^2=196, batch_size, embed_dim=512]
+                Tensor [encode_size^2, batch_size, embed_dim]
 
         output: output tensor.
-                Tensor [encode_size^2=196, batch_size, embed_dim=512]
+                Tensor [encode_size^2, batch_size, embed_dim]
         """
         output = self.conv2(self.relu(self.conv1(inputs.permute(1, 0, 2))))
         output = self.dropout(output)  # type: Tensor
@@ -66,7 +66,7 @@ class EncSelfAttension(nn.Module):
         """
         self.multi_head_attn = MultiheadAttention(embed_dim=img_embed_dim,
                                                   num_heads=num_heads,
-                                                  dropout=dropout)
+                                                  dropout=0.)
         self.layer_norm = nn.LayerNorm(img_embed_dim)
 
     def forward(self, enc_inputs: Tensor) -> Tensor:
@@ -74,15 +74,12 @@ class EncSelfAttension(nn.Module):
         param:
         enc_inputs:     Input images to encode
                         Tensor
-                        [encode_size^2=196, batch_size, embed_dim]
+                        [encode_size^2, batch_size, embed_dim]
 
         outputs:
         enc_outputs:    Encoded image
                         Tensor
-                        [encode_size^2=196, batch_size, embed_dim]
-
-        attn:           Attension weights
-                        [encode_size^2=196, batch_size, encode_size^2=196]
+                        [encode_size^2, batch_size, embed_dim]
         """
 
         enc_outputs, _ = self.multi_head_attn(enc_inputs, enc_inputs,
@@ -112,7 +109,7 @@ class EncoderLayer(nn.Module):
 
         self.enc_self_attn = EncSelfAttension(img_embed_dim=img_embed_dim,
                                               num_heads=num_heads,
-                                              dropout=dropout)
+                                              dropout=0.)
         self.cnn_ff = CNNFeedForward(encode_size=img_encode_size,
                                      embed_dim=img_embed_dim,
                                      feedforward_dim=feedforward_dim,
@@ -123,12 +120,12 @@ class EncoderLayer(nn.Module):
         param:
         enc_inputs:     Input images to encode
                         Tensor
-                        [encode_size^2=196, batch_size, embed_dim=512]
+                        [encode_size^2, batch_size, embed_dim]
 
         outputs:
         enc_outputs:    Encoded image
                         Tensor
-                        [encode_size^2=196, batch_size, embed_dim=512]
+                        [encode_size^2, batch_size, embed_dim]
         """
 
         enc_outputs = self.enc_self_attn(enc_inputs)

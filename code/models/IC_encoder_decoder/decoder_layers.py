@@ -22,10 +22,10 @@ class DecoderLayer(nn.Module):
 
         self.dec_self_attn = MultiheadAttention(d_model,
                                                 num_heads,
-                                                dropout=dropout)
+                                                dropout=0.)
         self.multihead_attn = MultiheadAttention(d_model,
                                                  num_heads,
-                                                 dropout=dropout)
+                                                 dropout=0.)
 
         self.self_attn_norm = nn.LayerNorm(d_model)
         self.multihead_norm = nn.LayerNorm(d_model)
@@ -46,11 +46,11 @@ class DecoderLayer(nn.Module):
         param:
         dec_inputs:     Captions to decode
                         Tensor
-                        [max_len, batch_size, embed_dim=512]
+                        [max_len, batch_size, embed_dim]
 
         enc_outputs:    Encoded image to decode
                         Tensor
-                        [encode_size^2=196, batch_size, embed_dim=512]
+                        [encode_size^2=196, batch_size, embed_dim]
 
         tgt_mask:       Mask to ensure that decoder doesn't look at future
                         tokens from a given subsequence
@@ -62,11 +62,18 @@ class DecoderLayer(nn.Module):
         outputs:
         output:         Decoder output
                         Tensor
-                        [max_len, batch_size, embed_dim=512]
+                        [max_len, batch_size, embed_dim]
 
         attn:           Attension weights
                         Tensor
-                        [batch_size, max_len, encode_size^2=196]
+                        [layer_num, batch_size, head_num, max_len,
+                        encode_size^2]
+                        To be able to do so, I have changed the code at
+                        /.virtualenvs/<env_name>/lib/python3.8/site-packages/torch/nn/functional.py
+                        line 4818 and changed
+                        `return attn_output, attn_output_weights.sum(dim=1) /
+                        num_heads` to be
+                        `return attn_output, attn_output_weights`
 
         """
         # self attention + resedual summation + norm

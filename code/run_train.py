@@ -1,4 +1,7 @@
 from pathlib import Path
+from math import sqrt
+
+import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
@@ -10,12 +13,12 @@ from models.IC_encoder_decoder.transformer import Transformer
 
 from trainer import Trainer
 from dataset.dataloader import HDF5Dataset, collate_padd
-from dataset.vocab import Vocabulary
+from dataset.vocab import Vocabulary, DictWithDefault
 from utils.train_utils import parse_arguments, seed_everything, load_json
 from utils.gpu_cuda_helper import select_device
 
 
-def get_datasets(dataset_dir: str):
+def get_datasets(dataset_dir: str, pid_pad: float):
     # Setting some pathes
     dataset_dir = Path(dataset_dir)
     images_train_path = dataset_dir / "train_images.hdf5"
@@ -32,14 +35,51 @@ def get_datasets(dataset_dir: str):
     train_dataset = HDF5Dataset(hdf5_path=images_train_path,
                                 captions_path=captions_train_path,
                                 lengthes_path=lengthes_train_path,
+                                pad_id=pid_pad,
                                 transform=transform)
 
     val_dataset = HDF5Dataset(hdf5_path=images_val_path,
                               captions_path=captions_val_path,
                               lengthes_path=lengthes_val_path,
+                              pad_id=pid_pad,
                               transform=transform)
 
     return train_dataset, val_dataset
+
+
+def get_glove_embedding(path_to_glove: str):
+    glove_embeds = DictWithDefault(default=0)
+    with open(path_to_glove) as f:
+        for line in f:
+            s = line.strip().split()
+            glove_embeds[s[0]] = np.array([float(i) for i in s[1:]])
+
+    return glove_embeds
+
+
+def get_glove_weights(glove_embeds: DictWithDefault, stoi: DictWithDefault,
+                      vocab_size: int):
+
+    embed_dim = list(glove_embeds.values())[-1].shape[0]
+    weights = np.zeros((vocab_size, embed_dim))  # init embeddings weights
+    for w_str, w_id in stoi.items():
+        weight = glove_embeds[w_str]  # if OOV/UNK -> weight(dict default)=int
+        if isinstance(weight, int):
+            weight = glove_embeds[w_str.lower()]
+            if isinstance(weight, int):
+                continue
+
+        weights[w_id] = weight
+
+    # Initailize <UNK> token
+    weight_unk = torch.ones(1, embed_dim)
+    torch.nn.init.xavier_uniform_(weight_unk)
+    weights[stoi.default] = weight_unk
+    # initialize start and end token
+    w = np.random.uniform(-sqrt(0.06), sqrt(0.06), (1, embed_dim))
+    weights[stoi["<SOS>"]] = w
+    weights[stoi["<EOS>"]] = w
+    return torch.FloatTensor(weights)
 
 
 if __name__ == "__main__":
@@ -57,12 +97,14 @@ if __name__ == "__main__":
     config = load_json(args.config_path)
 
     # load vocab
+    min_freq = config["min_freq"]
     vocab = Vocabulary()
-    vocab.load_vocab(str(Path(dataset_dir) / "vocab.json"))
-    pad_id = vocab.stoi["<pad>"]
+    vocab.load_vocab(str(Path(dataset_dir) / "vocab.json"), min_freq)
+    pad_id = vocab.stoi["<PAD>"]
+    vocab_size = vocab.__len__()
 
     # SEED
-    SEED = 9001
+    SEED = config["seed"]
     seed_everything(SEED)
 
     # --------------- dataloader --------------- #
@@ -71,7 +113,7 @@ if __name__ == "__main__":
     g.manual_seed(SEED)
     loader_params = config["dataloader_parms"]
     max_len = config["max_len"]
-    train_ds, val_ds = get_datasets(dataset_dir)
+    train_ds, val_ds = get_datasets(dataset_dir, pad_id)
     train_iter = DataLoader(train_ds,
                             collate_fn=collate_padd(max_len, pad_id),
                             pin_memory=True,
@@ -82,15 +124,15 @@ if __name__ == "__main__":
                           pin_memory=True,
                           num_workers=1,
                           shuffle=True)
-    print("loading dataset finished.\n")
+    print("loading dataset finished.")
+    print(f"number of vocabualry is {vocab_size}\n")
 
     # --------------- Construct models, optimizers --------------- #
-    print("Construct models")
+    print("constructing models")
     # prepare some hyperparameters
     image_enc_hyperparms = config["hyperparams"]["image_encoder"]
     image_seq_len = int(image_enc_hyperparms["encode_size"]**2)
 
-    vocab_size = vocab.__len__()
     transformer_hyperparms = config["hyperparams"]["transformer"]
     transformer_hyperparms["vocab_size"] = vocab_size
     transformer_hyperparms["pad_id"] = pad_id
@@ -102,21 +144,29 @@ if __name__ == "__main__":
     image_enc.fine_tune(True)
     transformer = Transformer(**transformer_hyperparms)
 
+    # load pretrained embeddings
+    print("loading pretrained glove embeddings...")
+    embeds_vectors = get_glove_embedding(config["pathes"]["embedding_path"])
+    weights = get_glove_weights(embeds_vectors, vocab.stoi, vocab_size)
+    transformer.decoder.cptn_emb.from_pretrained(weights,
+                                                 freeze=True,
+                                                 padding_idx=pad_id)
+
     # Optimizer
-    image_enc_lr = config["train_parms"]["encoder_lr"]
+    image_enc_lr = config["optim_params"]["encoder_lr"]
     parms2update = filter(lambda p: p.requires_grad, image_enc.parameters())
     image_encoder_optim = Adam(params=parms2update, lr=image_enc_lr)
 
-    transformer_lr = config["train_parms"]["transformer_lr"]
-    transformer_optim = Adam(params=transformer.parameters(),
-                             lr=transformer_lr)
+    transformer_lr = config["optim_params"]["transformer_lr"]
+    parms2update = filter(lambda p: p.requires_grad, transformer.parameters())
+    transformer_optim = Adam(params=parms2update, lr=transformer_lr)
 
     # Start train and evaluation
-    print("training models...\n")
+    print("start training...\n")
     train = Trainer(optims=[image_encoder_optim, transformer_optim],
-                    epochs=config["train_parms"]["epochs"],
                     device=device,
-                    pad_id=pad_id)
-    train.run(image_enc, transformer, [train_iter, val_iter])
+                    pad_id=pad_id,
+                    **config["train_parms"])
+    train.run(image_enc, transformer, [train_iter, val_iter], SEED)
 
     print("done")

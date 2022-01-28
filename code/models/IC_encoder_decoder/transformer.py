@@ -30,12 +30,12 @@ class Encoder(nn.Module):
         param:
         x:  encoder input
             Tensor
-            [encode_size^2=196, batch_size, embed_dim=512]
+            [encode_size^2, batch_size, image_embed_dim]
 
         outputs:
         x:  encoder output
             Tensor
-            [encode_size^2=196, batch_size, embed_dim=512]
+            [encode_size^2, batch_size, model_embed_dim]
         """
 
         for layer in self.layers:
@@ -106,20 +106,22 @@ class Decoder(nn.Module):
 
         src_img:    Encoded images (Transformer source sequence)
                     Tensor
-                    [encode_size^2=196, batch_size, embed_dim=512]
+                    [encode_size^2, batch_size, image_embed_dim]
 
         outputs:
         output:     Decoder output
                     Tensor
-                    [max_len, batch_size, embed_dim=512]
+                    [max_len, batch_size, model_embed_dim]
 
         attn_all:   Attension weights
                     Tensor
-                    [batch_size, head_num, max_len, encode_size^2=196]
+                    [layer_num, batch_size, head_num, max_len,
+                    encode_size^2]
+                    See comments in decoder_layers.DecoderLayer
         """
 
         # create masks, then pass to decoder
-        tgt_pad_mask = (tgt_cptn != self.pad_id)
+        tgt_pad_mask = (tgt_cptn == self.pad_id)
         tgt_mask = self.get_attn_subsequent_mask(tgt_cptn.size()[1])
         tgt_mask = tgt_mask.to(tgt_cptn.device)
 
@@ -132,9 +134,8 @@ class Decoder(nn.Module):
         for layer in self.layers:
             tgt_cptn, attns = layer(tgt_cptn, src_img, tgt_mask, tgt_pad_mask)
             attns_all.append(attns)
-        # [head_num, B, max_len, encode_size] ->
-        # [B, head_num, max_len, encode_size]
-        attns_all = torch.stack(attns_all).permute(1, 0, 2, 3)
+        # [layer_num, batch_size, head_num, max_len, encode_size**2]
+        attns_all = torch.stack(attns_all)
 
         return tgt_cptn, attns_all
 
@@ -177,15 +178,20 @@ class Transformer(nn.Module):
 
         self.predictor = nn.Linear(d_model, vocab_size, bias=False)
 
-    def load_pretrained_embeddings(self, embeddings):
-        self.decoder.cptn_emb.weight = nn.Parameter(embeddings)
-
     def forward(self, images: Tensor,
                 captions: Tensor) -> Tuple[Tensor, Tensor]:
+        """
+        param:
+        image:      source images
+                    [batch_size, encode_size^2=196, image_feature_size=512]
+
+        captions:   target cations
+                    [batch_size, max_len=52]
+        """
         # encode, decode, predict
-        images_encoded = self.encoder(images.permute(1, 0, 2))
+        images_encoded = self.encoder(images.permute(1, 0, 2))  # type: Tensor
         tgt_cptn, attns = self.decoder(captions, images_encoded)
-        predictions = self.predictor(tgt_cptn).permute(1, 0, 2)
+        predictions = self.predictor(tgt_cptn).permute(1, 0, 2)  # type: Tensor
 
         return predictions.contiguous(), attns.contiguous()
 

@@ -38,12 +38,12 @@ class Vocabulary:
         if words_counter:
             self.build_vocab()
 
-    def load_vocab(self, words_list_path: str):
+    def load_vocab(self, words_list_path: str, min_freq: Optional[int] = None):
         with open(words_list_path) as json_file:
             data = json.load(json_file)
 
         self.words_counter = data["words_counter"]
-        self.min_freq = data["min_freq"]
+        self.min_freq = min_freq if min_freq is not None else data["min_freq"]
         self.build_vocab()
 
     def save_vocab(self, save_path):

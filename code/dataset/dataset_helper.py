@@ -47,10 +47,15 @@ def combine_image_captions(images: List[str], captions_dict: Captions,
     for img in images:
         img_id = img["id"]
 
+        # select random 5 captions
+        captions = captions_dict[img_id]
+        idxs = np.random.choice(range(len(captions)), size=5, replace=False)
+        captions_selected = [captions[i] for i in idxs]
+
         img_filename = images_dir + "/" + img["file_name"]
         images_w_captions[img_filename] = {
             "image_id": img_id,
-            "captions": captions_dict[img_id]
+            "captions": captions_selected
         }
 
     return images_w_captions
