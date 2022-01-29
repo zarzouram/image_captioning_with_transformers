@@ -61,7 +61,7 @@ class Trainer():
         self.train = True  # train or val
         self.device = device
         self.resume = resume
-        self.epochs_num = epochs
+        self.epochs_num = epochs - 1  # epoch count start from 0
         self.epoch = 0
         self.val_interval = val_interval
         self.stop = stop_criteria
@@ -154,7 +154,7 @@ class Trainer():
             self.train = True  # toggle if val
         else:
             # validate every "val_interval" epoch
-            self.train = bool(self.epoch % (self.val_interval + 1))
+            self.train = bool(self.epoch % self.val_interval)
 
     def run(self, img_embeder: ModelType, transformer: ModelType,
             data_iters: DataIterType, SEED: int):
@@ -168,12 +168,12 @@ class Trainer():
         # number of layers: ln
 
         # some preparations:
-        phases = ["val", "train"]
+        phases = ["val", "train"]  # to determine the current phase
         seed_everything(SEED)
-        img_embeder = img_embeder.to(self.device)
+        img_embeder = img_embeder.to(self.device)  # move to device
         transformer = transformer.to(self.device)
 
-        # start
+        # ---------------- start epochs looping ---------------- #
         while self.epoch <= self.epochs_num:
 
             if self.train:
@@ -185,7 +185,8 @@ class Trainer():
                 transformer.eval()
                 data_iter = data_iters[1]
 
-            # Iterate over data
+            # ---------------- Iterate over data ---------------- #
+            # Init progress bar
             pb_trn = tqdm(data_iter, leave=False, total=len(data_iter))
             pb_trn.unit = "step"
             for step, (imgs, cptns_all, lens) in enumerate(pb_trn):
@@ -196,36 +197,37 @@ class Trainer():
                 # set progress bar description and metrics
                 pb_trn.set_description(f"Train: Step-{step:<4d}")
 
+                # move data to device, and random selected cptns
                 imgs = imgs.to(self.device)
-                # random selected cptns: [B, lm]
-                cptns = cptns_all[:, :, 0].to(self.device)
+                cptns = cptns_all[:, :, 0].to(self.device)  # [B, lm]
 
                 # zero the parameter gradients
                 self.img_embed_optim.zero_grad()
                 self.transformer_optim.zero_grad()
 
                 with torch.set_grad_enabled(self.train):
-                    # embed images then get captions prediction
+                    # embed images using CNN then get logits prediction using
+                    # the transformer
                     imgs = img_embeder(imgs)
                     logits, attns = transformer(imgs, cptns[:, :-1])
                     logits: Tensor  # [B, lm - 1, vsz]
                     attns: Tensor  # [ln, hm, B, lm, is]
 
+                    # loss calc, backward
                     loss = self.loss_fn(logits, cptns[:, 1:], attns)
-                    loss.backward()
-                    running_loss = loss.item()
 
                     # in train, gradient clip + update weights
                     if self.train:
+                        loss.backward()
                         self.clip_gradient()
                         self.img_embed_optim.step()
                         self.transformer_optim.step()
 
-                # Calculate some metrics
+                # get predections then alculate some metrics
                 preds = torch.argmax(logits, dim=2).cpu()  # predections
                 targets = cptns_all[:, 1:]  # remove <SOS>
                 scores = self.get_metrics(targets, lens - 1, preds)
-                scores["loss"] = running_loss  # add loss to metrics scores
+                scores["loss"] = loss.item()  # add loss to metrics scores
                 self.metrics_tracker.update_running(scores, phases[self.train])
 
                 # step ended
@@ -235,4 +237,4 @@ class Trainer():
             # epoch ended
             self.metrics_tracker.update(phases[self.train])  # save metrics
             self.set_phase()
-            self.epoch += 1 * self.train
+            self.epoch += 1 * self.train  # increase epoch count while training

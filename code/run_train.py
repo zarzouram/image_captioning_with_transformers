@@ -161,7 +161,7 @@ if __name__ == "__main__":
     parms2update = filter(lambda p: p.requires_grad, transformer.parameters())
     transformer_optim = Adam(params=parms2update, lr=transformer_lr)
 
-    # Start train and evaluation
+    # --------------- Training --------------- #
     print("start training...\n")
     train = Trainer(optims=[image_encoder_optim, transformer_optim],
                     device=device,

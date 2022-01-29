@@ -132,3 +132,4 @@ dmypy.json
 *test*
 runs/
 .data/
+.vector_cache
