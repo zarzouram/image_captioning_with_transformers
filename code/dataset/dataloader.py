@@ -50,15 +50,15 @@ class HDF5Dataset(data.Dataset):
         # [seq_len_max, captns_num=5]
         y = [torch.as_tensor(c, dtype=torch.long) for c in self.captions[i]]
         y = pad_sequence(y, padding_value=self.pad_id)  # type: Tensor
-        # select random
-        idx = np.random.randint(0, y.size(-1))
-        y_selected = y[:, idx].view(-1, 1)
-        y = torch.hstack([y_selected, y[:, :idx], y[:, idx + 1:]])
+        # # select random
+        # idx = np.random.randint(0, y.size(-1))
+        # y_selected = y[:, idx].view(-1, 1)
+        # y = torch.hstack([y_selected, y[:, :idx], y[:, idx + 1:]])
 
         # Lengthes: select the random length and rearrange to have it in idx=0
         ls = torch.as_tensor(self.lengthes[i], dtype=torch.long)
-        ls_selected = ls[idx]
-        ls = torch.hstack([ls_selected, ls[:idx], ls[idx + 1:]])
+        # ls_selected = ls[idx]
+        # ls = torch.hstack([ls_selected, ls[:idx], ls[idx + 1:]])
 
         return X, y, ls
 
@@ -85,21 +85,16 @@ class collate_padd(object):
         # [B, max_seq_len, captns_num=5]
         ls = torch.stack(ls)  # (B, num_captions)
         y = pad_sequence(y, batch_first=True, padding_value=self.pad)
-        y = y.permute(0, 2, 1)  # type: Tensor # [B, captns_num, max_seq_len]
 
-        # Either pad or teruncate to the max len
-        pad_right = self.max_len - y.size(-1)
-        # truncate if len > max_len; keep the last token=<EOS>
-        if pad_right < 0:
-            t_len = self.max_len - 1
-            y = torch.dstack((y[:, :, :t_len], y[:, :, -1].unsqueeze(2)))
-            ls[ls > self.max_len] = self.max_len
-        # pad to the max_len
-        elif pad_right > 0:
+        # pad to the max len
+        pad_right = self.max_len - y.size(1)
+        if pad_right > 0:
+            # [B, captns_num, max_seq_len]
+            y = y.permute(0, 2, 1)  # type: Tensor
             y = ConstantPad1d((0, pad_right), value=self.pad)(y)
+            y = y.permute(0, 2, 1)  # [B, max_len, captns_num]
 
-        X = torch.stack(X)   # (B, 3, 256, 256)
-        y = y.permute(0, 2, 1)  # [B, max_len, captns_num]
+        X = torch.stack(X)  # (B, 3, 256, 256)
 
         return X, y, ls
 
@@ -107,6 +102,7 @@ class collate_padd(object):
 if __name__ == "__main__":
     from utils import seed_worker
     from tqdm import tqdm
+    from pathlib import Path
 
     SEED = 9001
     random.seed(SEED)
@@ -120,24 +116,25 @@ if __name__ == "__main__":
     g = torch.Generator()
     g.manual_seed(SEED)
 
-    img_p = "/srv/data/guszarzmo/mlproject/data/mscoco_h5/test_images.hdf5"
-    cap_p = "/srv/data/guszarzmo/mlproject/data/mscoco_h5/test_captions.json"
-    ls_p = "/srv/data/guszarzmo/mlproject/data/mscoco_h5/test_lengthes.json"
-    train = HDF5Dataset(img_p, cap_p, ls_p, 0)
+    apath = Path("/srv/data/guszarzmo/mlproject/data/mscoco_h5/")
+    for p in ["train", "val", "test"]:
+        img_p = str(apath / f"{p}_images.hdf5")
+        cap_p = str(apath / f"{p}_captions.json")
+        ls_p = str(apath / f"{p}_lengthes.json")
+        train = HDF5Dataset(img_p, cap_p, ls_p, 0)
 
-    num_epochs = 2
-    loader_params = {
-        "batch_size": 100,
-        "shuffle": True,
-        "num_workers": 4,
-        "worker_init_fn": seed_worker,
-        "generator": g
-    }
-    data_loader = data.DataLoader(train,
-                                  collate_fn=collate_padd(30),
-                                  **loader_params)
+        loader_params = {
+            "batch_size": 100,
+            "shuffle": True,
+            "num_workers": 4,
+            "worker_init_fn": seed_worker,
+            "generator": g
+        }
+        data_loader = data.DataLoader(train,
+                                      collate_fn=collate_padd(30),
+                                      **loader_params)
 
-    for X, y, ls in tqdm(data_loader, total=len(data_loader)):
-        pass
+        for X, y, ls in tqdm(data_loader, total=len(data_loader)):
+            pass
 
     print("done")

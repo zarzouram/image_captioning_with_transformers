@@ -30,9 +30,11 @@ def parse_arguments() -> Namespace:
         default="gpu",  # gpu, cpu, mgpu
         help='path to pre-trained word Embedding.')
 
-    parser.add_argument("--resume",
-                        help='resume training.',
-                        action='store_true')
+    parser.add_argument(
+        "--resume",
+        type=str,
+        default="",
+        help='checkpoint filename.')
 
     args = parser.parse_args()
 

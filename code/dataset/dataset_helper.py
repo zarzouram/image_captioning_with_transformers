@@ -1,6 +1,6 @@
 from typing import List, Tuple
 from numpy.typing import NDArray
-from .custom_types import Captions, ImagesAndCaptions
+from .custom_types import Captions, ImagesAndCaptions, BOW
 
 from collections import defaultdict, Counter
 from itertools import chain
@@ -10,14 +10,16 @@ from tqdm import tqdm
 import re
 
 import numpy as np
+from torchtext.vocab import Vocab
+
 from sklearn.model_selection import train_test_split
 
 import cv2
 
-from .vocab import Vocabulary
+from .utils import init_unk
 
 
-def get_captions(annotations: list) -> Captions:
+def get_captions(annotations: list, max_len: int) -> Captions:
     """ Images and thier captions are separated into two list of dicts.
 
     json_path: a string of the mscoco annotation file
@@ -29,7 +31,11 @@ def get_captions(annotations: list) -> Captions:
         captions = [
             s for s in re.split(r"(\W)", annton["caption"]) if s.strip()
         ]
-        captions = ["<SOS>"] + captions + ["<EOS>"]
+        # Truncate if len > max_len - 2 (<sos> and <eos>)
+        if len(captions) > (max_len - 2):
+            captions = captions[:max_len - 2]
+
+        captions = ["<sos>"] + captions + ["<eos>"]
         captions_dict[annton["image_id"]].append(captions)
 
     return captions_dict
@@ -70,7 +76,7 @@ def load_images(image_path: str,
 
 
 def encode_captions(captions: List[List[str]],
-                    vocab: Vocabulary) -> Tuple[List[List[int]], List[int]]:
+                    vocab: Vocab) -> Tuple[List[List[int]], List[int]]:
     """Encode captions text to the respective indices"""
     encoded = []
     lengthes = []
@@ -121,14 +127,25 @@ def split_dataset(
     return dict(train_split), dict(val_split), test_split
 
 
-def build_vocab(captions: List[chain]) -> Vocabulary:
-    all_words = list(chain.from_iterable(captions))
-    return Vocabulary(dict(Counter(all_words)))
+def build_vocab(captions: List[chain],
+                vector_dir: str,
+                vector_name: str,
+                min_freq: int = 2) -> Vocab:
+    all_words = list(chain.from_iterable(captions))  # Type: List[str]
+    bag_of_words: BOW = Counter(all_words)
+
+    vocab: Vocab = Vocab(bag_of_words,
+                         min_freq=min_freq,
+                         specials=("<unk>", "<pad>", "<sos>", "<eos>"),
+                         vectors_cache=vector_dir,
+                         vectors=vector_name,
+                         unk_init=init_unk)
+    return vocab
 
 
 def create_input_arrays(
         dataset: Tuple[str, Captions],
-        vocab: Vocabulary) -> Tuple[NDArray, List[List[int]], List[int]]:
+        vocab: Vocab) -> Tuple[NDArray, List[List[int]], List[int]]:
     """load images and encode captions text"""
 
     image = load_images(dataset[0], 256, 256)
@@ -139,7 +156,7 @@ def create_input_arrays(
 
 def run_create_arrays(
     dataset: ImagesAndCaptions,
-    vocab: Vocabulary,
+    vocab: Vocab,
     split: str,
     num_proc: int = 4
 ) -> Tuple[NDArray, List[List[List[int]]], List[List[int]]]:
