@@ -129,6 +129,7 @@ dmypy.json
 .pyre/
 
 # code/test/
-*test*
+test/
 runs/
 .data/
+logs/exp_3*

@@ -102,7 +102,7 @@ class Decoder(nn.Module):
         param:
         tgt_cptn:   Captions (Transformer target sequence)
                     Tensor
-                    [batch_size, max_len]
+                    [batch_size, max_len-1]
 
         src_img:    Encoded images (Transformer source sequence)
                     Tensor
@@ -115,7 +115,7 @@ class Decoder(nn.Module):
 
         attn_all:   Attension weights
                     Tensor
-                    [layer_num, batch_size, head_num, max_len,
+                    [layer_num, batch_size, head_num, max_len-1,
                     encode_size^2]
                     See comments in decoder_layers.DecoderLayer
         """
@@ -185,8 +185,19 @@ class Transformer(nn.Module):
         image:      source images
                     [batch_size, encode_size^2=196, image_feature_size=512]
 
-        captions:   target cations
-                    [batch_size, max_len=52]
+        captions:   target captions
+                    [batch_size, max_len-1=51]
+
+        outputs:
+        predictions:    Decoder output
+                        Tensor
+                        [batch_size, max_len, vocab_size]
+
+        attn_all:       Attension weights
+                        Tensor
+                        [layer_num, batch_size, head_num, max_len,
+                        encode_size^2]
+                        See comments in decoder_layers.DecoderLayer
         """
         # encode, decode, predict
         images_encoded = self.encoder(images.permute(1, 0, 2))  # type: Tensor

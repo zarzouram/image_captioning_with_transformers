@@ -25,6 +25,7 @@ class CNNFeedForward(nn.Module):
                             float
         """
         #  Two fc layers can also be described by two cnn with kernel_size=1.
+        # https://sebastianraschka.com/faq/docs/fc-to-conv.html#methods-2-convolution-with-1x1-kernels
         self.conv1 = nn.Conv1d(in_channels=encode_size,
                                out_channels=feedforward_dim,
                                kernel_size=1)
@@ -66,7 +67,7 @@ class EncSelfAttension(nn.Module):
         """
         self.multi_head_attn = MultiheadAttention(embed_dim=img_embed_dim,
                                                   num_heads=num_heads,
-                                                  dropout=0.)
+                                                  dropout=dropout)
         self.layer_norm = nn.LayerNorm(img_embed_dim)
 
     def forward(self, enc_inputs: Tensor) -> Tensor:
@@ -109,7 +110,7 @@ class EncoderLayer(nn.Module):
 
         self.enc_self_attn = EncSelfAttension(img_embed_dim=img_embed_dim,
                                               num_heads=num_heads,
-                                              dropout=0.)
+                                              dropout=dropout)
         self.cnn_ff = CNNFeedForward(encode_size=img_encode_size,
                                      embed_dim=img_embed_dim,
                                      feedforward_dim=feedforward_dim,

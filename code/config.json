@@ -29,7 +29,7 @@
         "val_interval": 2,
         "early_stop": 10,
         "lr_patience": 5,
-        "embedings_finetune": 75,
+        "embedings_finetune": 10,
         "grad_clip": 5.0,
         "lambda_c": 1.0
     },
@@ -37,8 +37,8 @@
         "encoder_lr": 1e-4,
         "transformer_lr": 1e-4,
         "lr_factors": [
-            0.9,
-            0.9
+            0.75,
+            0.75
         ]
     },
     "max_len": 52,

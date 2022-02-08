@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Dict, List, Union, Optional
 from statistics import mean
 from collections import defaultdict
@@ -8,6 +9,7 @@ import numpy as np
 import torch
 from torch import Tensor
 from torch import nn
+from torch.utils.tensorboard import SummaryWriter
 
 from nlg_metrics import Metrics
 from utils.custom_types import ModelType, OptimType, DeviceTye, DataIterType
@@ -81,7 +83,6 @@ class Trainer():
         # start tune embeddings after n training epochs have beed passed
         self.finetune_embedding = embedings_finetune
         self.pad_id = pad_id
-        self.checkpoints_path = checkpoints_path
 
         # criterion, optims and schedulers
         self.criterion = nn.CrossEntropyLoss(ignore_index=pad_id).to(device)
@@ -104,6 +105,21 @@ class Trainer():
         # coeffecient of Doubly stochastic attention regularization
         self.lc = lambda_c
         self.grad_clip_c = grad_clip  # gradient clip coeffecient
+
+        if resume is None:
+            time_tag = str(datetime.now().strftime("%d%m.%H%M"))
+        else:
+            time_tag = Path(resume).parent
+        # Tensorboard writer
+        self.logger = SummaryWriter(log_dir=f"logs/exp_{time_tag}/logs")
+        self.loss_logger = SummaryWriter(log_dir=f"logs/exp_{time_tag}/loss")
+        self.bleu4_logger = SummaryWriter(log_dir=f"logs/exp_{time_tag}/bleu4")
+        self.gleu_logger = SummaryWriter(log_dir=f"logs/exp_{time_tag}/gleu")
+
+        # make folder for the experment
+        checkpoints_path = Path(checkpoints_path) / f"{time_tag}"  # type: Path
+        checkpoints_path.mkdir(parents=True, exist_ok=True)
+        self.checkpoints_path = str(checkpoints_path)
 
     def loss_fn(self, logits: Tensor, targets: Tensor,
                 attns: Tensor) -> Tensor:
@@ -174,7 +190,7 @@ class Trainer():
             self.train = True  # toggle if val
         else:
             # validate every "val_interval" epoch
-            self.train = bool(self.epoch % (self.val_interval + 1))
+            self.train = bool(self.epoch % self.val_interval)
 
     def check_improvement(self, metric: float):
         is_better = metric > self.best_metric
@@ -226,8 +242,7 @@ class Trainer():
 
         return image_model_state, transformer_state
 
-    def save_checkpoint(self, models: List[ModelType], save_dir: str,
-                        is_best: bool):
+    def save_checkpoint(self, models: List[ModelType], is_best: bool):
 
         image_model_state = models[0].state_dict()
         Transformer_state = models[1].state_dict()
@@ -252,20 +267,41 @@ class Trainer():
         file_name = "checkpoint"
         if is_best:
             file_name = f"{file_name}_best"
-        save_path = Path(save_dir) / f"{file_name}.pth.tar"
+        save_path = Path(self.checkpoints_path) / f"{file_name}.pth.tar"
 
         torch.save(state, save_path)
+
+    def plot_data(self, phase, metrics_dict):
+        current_metric = {f"{phase}": metrics_dict["loss"][-1]}
+        self.loss_logger.add_scalars("loss", current_metric, self.epoch)
+
+        current_metric = {f"{phase}": metrics_dict["bleu4"][-1]}
+        self.bleu4_logger.add_scalars("bleu4", current_metric, self.epoch)
+
+        current_metric = {f"{phase}": metrics_dict["gleu"][-1]}
+        self.gleu_logger.add_scalars("gleu", current_metric, self.epoch)
+
+        # Plot all metrics except loss and bleu4
+        if not self.train:
+            ex = ["loss", "bleu4", "gleu"]
+            name_tag = "Metrics Validation"
+            current_metrics = {
+                k: v[-1]
+                for k, v in metrics_dict.items() if k not in ex
+            }
+            self.logger.add_scalars(name_tag, current_metrics, self.epoch)
 
     def run(self, img_embeder: ModelType, transformer: ModelType,
             data_iters: DataIterType, SEED: int):
         # Sizes:
-        # batch_size: B
-        # image encode size^2: image seq len: is=196
-        # vocab_size: vsz
-        # max_len: lm=52
-        # number of captions: cn=5
-        # number of heads: hn=8
-        # number of layers: ln
+        # B:   batch_size
+        # is:  image encode size^2: image seq len: [default=196]
+        # vsc: vocab_size: vsz
+        # lm:  max_len: [default=52]
+        # cn:  number of captions: [default=5]
+        # hn:  number of transformer heads: [default=8]
+        # ln:  number of layers
+        # k:   Beam Size
 
         # some preparations:
         phases = ["val", "train"]
@@ -305,6 +341,7 @@ class Trainer():
                 data_iter = data_iters[1]
 
             # Iterate over data
+            # prgress bar
             pb = tqdm(data_iter, leave=False, total=len(data_iter))
             pb.unit = "step"
             for step, (imgs, cptns_all, lens) in enumerate(pb):
@@ -329,7 +366,7 @@ class Trainer():
                     imgs = img_embeder(imgs)
                     logits, attns = transformer(imgs, cptns[:, :-1])
                     logits: Tensor  # [B, lm - 1, vsz]
-                    attns: Tensor  # [ln, hm, B, lm, is]
+                    attns: Tensor  # [ln, B, hn, lm, is]
 
                     loss = self.loss_fn(logits, cptns[:, 1:], attns)
 
@@ -349,10 +386,7 @@ class Trainer():
 
                 # step ended
                 # update progress bar
-                pb.update(1)
-
-                if step == 3:
-                    break
+                # pb.update(1)
 
             self.metrics_tracker.update(phases[self.train])  # save metrics
             if not self.train:
@@ -366,13 +400,20 @@ class Trainer():
             # save checkpoint
             if self.train or is_best:
                 self.save_checkpoint(models=[img_embeder, transformer],
-                                     save_dir=self.checkpoints_path,
                                      is_best=is_best)
+
+            # PLot metrics
+            phase = phases[self.train]
+            metrics_dict = self.metrics_tracker.metrics[phase]
+            self.plot_data(phase, metrics_dict)
 
             # epoch ended
             self.set_phase()  # set train or vall phase
             self.epoch += 1 * self.train
             pb.close()  # close progress bar
-            main_pb.update(1)
+            if self.train:
+                main_pb.update(1)
             if es:  # early stopping
+                main_pb.close()
+                print(f"Early stop training at epoch {self.epoch}")
                 break
