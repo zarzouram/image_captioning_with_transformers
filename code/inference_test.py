@@ -167,8 +167,8 @@ if __name__ == "__main__":
             # current_preds: [k, S]
 
             # get last layer, mean across transformer heads
-            attns = attns[-1].mean(dim=1).view(1, 1, h, w)  # [k=1, s=1, h, w]
-            current_attns = attns.repeat_interleave(repeats=k, dim=0)
+            # attns = attns[-1].mean(dim=1).view(1, 1, h, w)  # [k=1, s=1, h, w]
+            # current_attns = attns.repeat_interleave(repeats=k, dim=0)
             # [k, s=1, h, w]
 
         seq_preds = []
@@ -183,7 +183,9 @@ if __name__ == "__main__":
                 # logits: [k, S, vsc]
                 # attns: # [ln, k, hn, S, is]
                 # get last layer, mean across transformer heads
-                attns = attns[-1].mean(dim=1).view(k, -1, h, w)  # [k, S, h, w]
+                # attns = attns[-1].mean(dim=1).view(k, -1, h, w)
+                # # [k, S, h, w]
+                # attns = attns[:, -1].view(k, 1, h, w)  # current word
 
                 # next word prediction
                 log_prob = F.log_softmax(logits[:, -1:, :], dim=-1).squeeze(1)
@@ -202,8 +204,8 @@ if __name__ == "__main__":
 
                 current_preds = torch.cat(
                     (current_preds[prev_seq_k], next_word_id), dim=1)
-                current_attns = torch.cat(
-                    (current_attns[prev_seq_k], attns[prev_seq_k]), dim=1)
+                # current_attns = torch.cat(
+                #     (current_attns[prev_seq_k], attns[prev_seq_k]), dim=1)
 
             # find predicted sequences that ends
             seqs_end = (next_word_id == eos_id).view(-1)
@@ -211,12 +213,15 @@ if __name__ == "__main__":
                 seq_preds.extend(seq.tolist()
                                  for seq in current_preds[seqs_end])
                 seq_log_probs.extend(log_prob_topk[seqs_end].tolist())
-                seq_attns.extend(current_attns[seqs_end].tolist())
+                # get last layer, mean across transformer heads
+                attns = attns[-1].mean(dim=1).view(k, -1, h, w)
+                # [k, S, h, w]
+                seq_attns.extend(attns[prev_seq_k][seqs_end].tolist())
 
                 k -= torch.sum(seqs_end)
                 current_preds = current_preds[~seqs_end]
                 log_prob_topk = log_prob_topk[~seqs_end]
-                current_attns = current_attns[~seqs_end]
+                # current_attns = current_attns[~seqs_end]
 
         # Sort predicted captions according to seq_log_probs
         specials = [pad_id, sos_id, eos_id]
