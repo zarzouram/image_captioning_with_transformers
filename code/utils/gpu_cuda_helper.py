@@ -25,7 +25,7 @@ def get_gpu_memory() -> List[int]:
 
 
 def get_gpus_avail() -> List[Tuple[int, float]]:
-    """Get the GPU ids that have memory usage less than 50%
+    """Get the GPU ids that have memory usage less than or equal to 40%
     """
     memory_usage = get_gpu_memory()
 
@@ -48,12 +48,15 @@ def get_gpus_avail() -> List[Tuple[int, float]]:
                   (tup[1], -tup[0])) if cuda_ids else cuda_ids
 
 
-def select_device(device: str):
+def select_device(device: str = "gpu"):
     if device == "cpu":
         return torch.device(device)
     elif device == "gpu":
         gpus_avail = get_gpus_avail()
-        return torch.device(f"cuda:{gpus_avail[0][0]}")
+        if gpus_avail:
+            return torch.device(f"cuda:{gpus_avail[0][0]}")
+        else:
+            return torch.device("cpu")
 
 
 if __name__ == "__main__":

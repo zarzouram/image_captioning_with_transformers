@@ -22,10 +22,10 @@ class DecoderLayer(nn.Module):
 
         self.dec_self_attn = MultiheadAttention(d_model,
                                                 num_heads,
-                                                dropout=0.)
+                                                dropout=dropout)
         self.multihead_attn = MultiheadAttention(d_model,
                                                  num_heads,
-                                                 dropout=0.)
+                                                 dropout=dropout)
 
         self.self_attn_norm = nn.LayerNorm(d_model)
         self.multihead_norm = nn.LayerNorm(d_model)

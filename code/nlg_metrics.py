@@ -1,4 +1,5 @@
 from statistics import mean
+from typing import Dict, List
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from nltk.translate.gleu_score import sentence_gleu
 from nltk.translate.meteor_score import meteor_score
@@ -25,6 +26,7 @@ class BLUE:
 
 
 class GLEU:
+
     def __init__(self) -> None:
         pass
 
@@ -32,10 +34,11 @@ class GLEU:
         return sentence_gleu(*args, **kwargs)
 
     def __repr__(self):
-        return "glue"
+        return "gleu"
 
 
 class METEOR:
+
     def __init__(self) -> None:
         pass
 
@@ -60,7 +63,10 @@ class Metrics:
 
         self.all = [bleu1, bleu2, bleu3, self.bleu4, self.gleu, meteor]
 
-    def calculate(self, refs, hypos, train: bool = False):
+    def calculate(self,
+                  refs: List[List[List[str]]],
+                  hypos: List[List[str]],
+                  train: bool = False) -> Dict[str, float]:
         if train:
             score_fns = [self.bleu4, self.gleu]
         else:

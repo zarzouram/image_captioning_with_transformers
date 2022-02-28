@@ -16,8 +16,8 @@
         }
     },
     "pathes": {
-        "embedding_path": "/srv/data/guszarzmo/embeddings/Glove/glove.6B.300d.txt",
-        "checkpoints": "/srv/data/guszarzmo/mlproject/checkpoints/"
+        "embedding_path": "/srv/data/guszarzmo/embeddings/Glove",
+        "checkpoint": "/srv/data/guszarzmo/mlproject/checkpoints/"
     },
     "dataloader_parms": {
         "batch_size": 32,
@@ -25,17 +25,22 @@
         "num_workers": 4
     },
     "train_parms": {
-        "grad_clip": 5.0,
-        "lambda_c": 1.0,
         "epochs": 100,
-        "val_interval": 5,
-        "stop_criteria": 25
+        "val_interval": 2,
+        "early_stop": 10,
+        "lr_patience": 5,
+        "embedings_finetune": 10,
+        "grad_clip": 5.0,
+        "lambda_c": 1.0
     },
     "optim_params": {
         "encoder_lr": 1e-4,
-        "transformer_lr": 1e-4
+        "transformer_lr": 1e-4,
+        "lr_factors": [
+            0.75,
+            0.75
+        ]
     },
-
     "max_len": 52,
     "min_freq": 3,
     "seed": 9001

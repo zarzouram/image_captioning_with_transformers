@@ -9,6 +9,8 @@ import h5py
 
 import numpy as np
 import torch
+from torch import Tensor
+from torch.nn.init import xavier_uniform_
 
 
 def parse_arguments() -> Namespace:
@@ -51,6 +53,28 @@ def parse_arguments() -> Namespace:
         default="/srv/data/guszarzmo/mlproject/data/mscoco_h5/",
         help="Directory have MS COCO image files for the val split.")
 
+    parser.add_argument("--vector_dir",
+                        type=str,
+                        default="/srv/data/guszarzmo/embeddings/Glove",
+                        help="Directory to embedding vector.")
+
+    parser.add_argument("--vector_dim",
+                        type=str,
+                        default="300",
+                        help="Vector dimention")
+
+    parser.add_argument(
+        "--min_freq",
+        type=int,
+        default=2,
+        help="minimum frequency needed to include a token in the vocabulary")
+
+    parser.add_argument(
+        "--max_len",
+        type=int,
+        default=52,
+        help="minimum length for captions")
+
     args = parser.parse_args()
 
     return args
@@ -86,3 +110,10 @@ def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
+
+
+def init_unk(tensor: Tensor) -> Tensor:
+    """initialize unkown word vectors. A function that takes in a Tensor and
+        returns a weight Tensor of the same size"""
+    weight_unk = torch.ones(tensor.size())
+    return xavier_uniform_(weight_unk.view(1, -1)).view(-1)

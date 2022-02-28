@@ -1,19 +1,18 @@
 from pathlib import Path
-from math import sqrt
-
-import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
 from torchvision.transforms import Normalize, Compose
 from torch.optim import Adam
+from torch.optim.lr_scheduler import StepLR
 
 from models.cnn_encoder import ImageEncoder
 from models.IC_encoder_decoder.transformer import Transformer
 
-from trainer import Trainer
 from dataset.dataloader import HDF5Dataset, collate_padd
-from dataset.vocab import Vocabulary, DictWithDefault
+from torchtext.vocab import Vocab
+
+from trainer import Trainer
 from utils.train_utils import parse_arguments, seed_everything, load_json
 from utils.gpu_cuda_helper import select_device
 
@@ -47,47 +46,14 @@ def get_datasets(dataset_dir: str, pid_pad: float):
     return train_dataset, val_dataset
 
 
-def get_glove_embedding(path_to_glove: str):
-    glove_embeds = DictWithDefault(default=0)
-    with open(path_to_glove) as f:
-        for line in f:
-            s = line.strip().split()
-            glove_embeds[s[0]] = np.array([float(i) for i in s[1:]])
-
-    return glove_embeds
-
-
-def get_glove_weights(glove_embeds: DictWithDefault, stoi: DictWithDefault,
-                      vocab_size: int):
-
-    embed_dim = list(glove_embeds.values())[-1].shape[0]
-    weights = np.zeros((vocab_size, embed_dim))  # init embeddings weights
-    for w_str, w_id in stoi.items():
-        weight = glove_embeds[w_str]  # if OOV/UNK -> weight(dict default)=int
-        if isinstance(weight, int):
-            weight = glove_embeds[w_str.lower()]
-            if isinstance(weight, int):
-                continue
-
-        weights[w_id] = weight
-
-    # Initailize <UNK> token
-    weight_unk = torch.ones(1, embed_dim)
-    torch.nn.init.xavier_uniform_(weight_unk)
-    weights[stoi.default] = weight_unk
-    # initialize start and end token
-    w = np.random.uniform(-sqrt(0.06), sqrt(0.06), (1, embed_dim))
-    weights[stoi["<SOS>"]] = w
-    weights[stoi["<EOS>"]] = w
-    return torch.FloatTensor(weights)
-
-
 if __name__ == "__main__":
 
     # parse command arguments
     args = parse_arguments()
     dataset_dir = args.dataset_dir  # mscoco hdf5 and json files
     resume = args.resume
+    if resume == "":
+        resume = None
 
     # device
     device = select_device(args.device)
@@ -98,10 +64,9 @@ if __name__ == "__main__":
 
     # load vocab
     min_freq = config["min_freq"]
-    vocab = Vocabulary()
-    vocab.load_vocab(str(Path(dataset_dir) / "vocab.json"), min_freq)
-    pad_id = vocab.stoi["<PAD>"]
-    vocab_size = vocab.__len__()
+    vocab: Vocab = torch.load(str(Path(dataset_dir) / "vocab.pth"))
+    pad_id = vocab.stoi["<pad>"]
+    vocab_size = len(vocab)
 
     # SEED
     SEED = config["seed"]
@@ -146,26 +111,33 @@ if __name__ == "__main__":
 
     # load pretrained embeddings
     print("loading pretrained glove embeddings...")
-    embeds_vectors = get_glove_embedding(config["pathes"]["embedding_path"])
-    weights = get_glove_weights(embeds_vectors, vocab.stoi, vocab_size)
+    weights = vocab.vectors
     transformer.decoder.cptn_emb.from_pretrained(weights,
                                                  freeze=True,
                                                  padding_idx=pad_id)
+    list(transformer.decoder.cptn_emb.parameters())[0].requires_grad = False
 
-    # Optimizer
+    # Optimizers and schedulers
     image_enc_lr = config["optim_params"]["encoder_lr"]
     parms2update = filter(lambda p: p.requires_grad, image_enc.parameters())
     image_encoder_optim = Adam(params=parms2update, lr=image_enc_lr)
+    gamma = config["optim_params"]["lr_factors"][0]
+    image_scheduler = StepLR(image_encoder_optim, step_size=1, gamma=gamma)
 
     transformer_lr = config["optim_params"]["transformer_lr"]
     parms2update = filter(lambda p: p.requires_grad, transformer.parameters())
     transformer_optim = Adam(params=parms2update, lr=transformer_lr)
+    gamma = config["optim_params"]["lr_factors"][1]
+    transformer_scheduler = StepLR(transformer_optim, step_size=1, gamma=gamma)
 
     # --------------- Training --------------- #
     print("start training...\n")
     train = Trainer(optims=[image_encoder_optim, transformer_optim],
+                    schedulers=[image_scheduler, transformer_scheduler],
                     device=device,
                     pad_id=pad_id,
+                    resume=resume,
+                    checkpoints_path=config["pathes"]["checkpoint"],
                     **config["train_parms"])
     train.run(image_enc, transformer, [train_iter, val_iter], SEED)
 
