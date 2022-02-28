@@ -212,7 +212,8 @@ def visualize_word_attention(image: NDArray, attn: NDArray, gt_text: str,
     _ = ax2.text(x20, (y20 + y21) / 2, pred_text, **kwargs)
 
     # save plt
-    save_path = save_dir / f"fig_{idx:05d}-{widx+1:03d}.png"
+    score = f"{int(bleu4_score * 100000):05d}"
+    save_path = save_dir / f"fig_i{idx:05d}-s{score}-w{widx+1:03d}.png"
     fig.savefig(str(save_path),
                 dpi=600,
                 transparent=False,
