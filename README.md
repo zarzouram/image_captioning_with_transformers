@@ -106,7 +106,8 @@ python code/run_train.py [ARGUMENT]
 
 ### 2.5. Testing the model
 
-`code/inference_test.py` reads images from the test split and generats a description using beam search. The output of this module is a pandas dataframe that holds the following:
+`code/inference_test.py` reads images from the test split and generats a description using beam search. The output 
+of this module is a pandas dataframe that holds the following:
 
   1. The generated caption
   2. Top-k generated captions
@@ -131,10 +132,13 @@ python code/inference_test.py [ARGUMENT]
 
 ### Analysis Notebook
 
-`code/experiment.ipynb` holds some analysis I did on the model perfromance. Also, the visualization of attention is done in the notebook. Both `GIF` and `PNG` images are generated and saved under `images/tests`.
+`code/experiment.ipynb` holds some analysis I did on the model perfromance. Also, the visualization of 
+attention is done in the notebook. Both `GIF` and `PNG` images are generated and saved under `images/tests`.
 
-Section 2.0 in the notbook presents randomly selected samples from the `images/tests` using `ipywidgets`.
-![](https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/firefox_H4tRhSVOok.gif | width=120)
+Section 2.0 in the notbook presents randomly selected samples from the `images/tests` using `ipywidgets`. See an example below.
+
+<img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/firefox_H4tRhSVOok.gif" width="80%" padding="100px 100px 100px 100px">
+
 
 ## 3. References
 
