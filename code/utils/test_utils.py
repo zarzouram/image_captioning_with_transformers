@@ -14,7 +14,7 @@ def parse_arguments() -> Namespace:
     parser.add_argument("--save_dir",
                         type=str,
                         default="/srv/data/guszarzmo/mlproject/data/test_out",
-                        help="Directory contains processed MS COCO dataset.")
+                        help="Directory to save the output files.")
 
     parser.add_argument("--config_path",
                         type=str,

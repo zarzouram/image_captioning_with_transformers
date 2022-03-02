@@ -51,7 +51,7 @@ def parse_arguments() -> Namespace:
         "--output_dir",
         type=str,
         default="/srv/data/guszarzmo/mlproject/data/mscoco_h5/",
-        help="Directory have MS COCO image files for the val split.")
+        help="Directory to save the output files.")
 
     parser.add_argument("--vector_dir",
                         type=str,

@@ -27,8 +27,8 @@ def parse_arguments() -> Namespace:
     parser.add_argument(
         '--device',
         type=str,
-        default="gpu",  # gpu, cpu, mgpu
-        help='path to pre-trained word Embedding.')
+        default="gpu",  # gpu, cpu
+        help='Device to be used either gpu or cpu.')
 
     parser.add_argument(
         "--resume",
