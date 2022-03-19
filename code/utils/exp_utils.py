@@ -38,7 +38,7 @@ def add_axis(ax, aspect=20, pad_fraction=0.5, **kwargs):
 
 
 def plot_hist(data: List[NDArray],
-              fig_data=dict,
+              fig_data: dict,
               bins: Optional[Union[List[List[float]], List[int]]] = None,
               norm_pdf: bool = False,
               count: bool = False) -> Tuple[plt.Figure, plt.Axes]:

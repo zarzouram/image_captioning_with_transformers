@@ -7,7 +7,7 @@
   - [2.3. Create Dataset](#23-create-dataset)
   - [2.4. Train the model](#24-train-the-model)
   - [2.5. Testing the model](#25-testing-the-model)
-  - [Analysis Notebook](#analysis-notebook)
+  - [2.6. Analysis Notebook](#26-analysis-notebook)
 - [3. References](#3-references)
 
 ## 1. Introduction
@@ -106,7 +106,7 @@ python code/run_train.py [ARGUMENT]
 
 ### 2.5. Testing the model
 
-`code/inference_test.py` reads images from the test split and generats a description using beam search. The output 
+`code/inference_test.py` reads images from the test split and generats a description using beam search. The output
 of this module is a pandas dataframe that holds the following:
 
   1. The generated caption
@@ -130,9 +130,9 @@ You can run the code using the default values of the arguments above.
 python code/inference_test.py [ARGUMENT]
 ```
 
-### Analysis Notebook
+### 2.6. Analysis Notebook
 
-`code/experiment.ipynb` holds some analysis I did on the model perfromance. Also, the visualization of 
+`code/experiment.ipynb` holds some analysis I did on the model perfromance. Also, the visualization of
 attention is done in the notebook. Both `GIF` and `PNG` images are generated and saved under `images/tests`.
 
 Section 2.0 in the notbook presents randomly selected samples from the `images/tests` using `ipywidgets`. See an example below.
@@ -143,7 +143,7 @@ Section 2.0 in the notbook presents randomly selected samples from the `images/t
 ## 3. References
 
 <a id="1">[1]</a>
-Liu, W., Chen, S., Guo, L., Zhu, X., & Liu, J. (2021). Cptr: Full transformer
+Liu, W., Chen, S., Guo, L., Zhu, X., & Liu, J. (2021). CPTR: Full transformer
 network for image captioning. arXiv preprint
 [arXiv:2101.10804](https://arxiv.org/abs/2101.10804).
 

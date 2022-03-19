@@ -136,6 +136,10 @@ class Trainer():
 
         # calc λ(1-∑αi)^2 for each pixel in each head in each layer
         # alphas [layer_num, head_num, batch_size*encode_size^2]
+        # TODO:
+        # Reduction: Would it make any difference if I sum across
+        # (encode_size^2, and head) dimensions and average across batch and
+        # layers?
         alphas = self.lc * (1. - attns.sum(dim=3).view(ln, hn, -1))**2
         alphas: Tensor
         dsar = alphas.mean(-1).sum()
@@ -191,8 +195,6 @@ class Trainer():
         else:
             # validate every "val_interval" epoch
             self.train = bool(self.epoch % self.val_interval)
-<<<<<<< HEAD
-=======
 
     def check_improvement(self, metric: float):
         is_better = metric > self.best_metric
@@ -292,7 +294,6 @@ class Trainer():
                 for k, v in metrics_dict.items() if k not in ex
             }
             self.logger.add_scalars(name_tag, current_metrics, self.epoch)
->>>>>>> UseTorch.text.vocab
 
     def run(self, img_embeder: ModelType, transformer: ModelType,
             data_iters: DataIterType, SEED: int):
@@ -309,12 +310,6 @@ class Trainer():
         # some preparations:
         phases = ["val", "train"]  # to determine the current phase
         seed_everything(SEED)
-<<<<<<< HEAD
-        img_embeder = img_embeder.to(self.device)  # move to device
-        transformer = transformer.to(self.device)
-
-        # ---------------- start epochs looping ---------------- #
-=======
         if self.resume:
             model_state_dicts = self.load_checkpoint()
             img_embeder.load_state_dict(model_state_dicts[0])
@@ -326,7 +321,6 @@ class Trainer():
 
         # start
         main_pb = tqdm(range(self.epochs_num))
->>>>>>> UseTorch.text.vocab
         while self.epoch <= self.epochs_num:
 
             main_pb.set_description(f"epoch: {self.epoch:02d}")
@@ -350,19 +344,11 @@ class Trainer():
                 transformer.eval()
                 data_iter = data_iters[1]
 
-<<<<<<< HEAD
-            # ---------------- Iterate over data ---------------- #
-            # Init progress bar
-            pb_trn = tqdm(data_iter, leave=False, total=len(data_iter))
-            pb_trn.unit = "step"
-            for step, (imgs, cptns_all, lens) in enumerate(pb_trn):
-=======
             # Iterate over data
             # prgress bar
             pb = tqdm(data_iter, leave=False, total=len(data_iter))
             pb.unit = "step"
             for step, (imgs, cptns_all, lens) in enumerate(pb):
->>>>>>> UseTorch.text.vocab
                 imgs: Tensor  # images [B, 3, 256, 256]
                 cptns_all: Tensor  # all 5 captions [B, lm, cn=5]
                 lens: Tensor  # lengthes of all captions [B, cn]
@@ -372,13 +358,9 @@ class Trainer():
 
                 # move data to device, and random selected cptns
                 imgs = imgs.to(self.device)
-<<<<<<< HEAD
-                cptns = cptns_all[:, :, 0].to(self.device)  # [B, lm]
-=======
                 # random selected cptns: [B, lm]
                 idx = np.random.randint(0, cptns_all.size(-1))
                 cptns = cptns_all[:, :, idx].to(self.device)
->>>>>>> UseTorch.text.vocab
 
                 # zero the parameter gradients
                 self.img_embed_optim.zero_grad()
@@ -414,10 +396,6 @@ class Trainer():
                 # pb.update(1)
 
             self.metrics_tracker.update(phases[self.train])  # save metrics
-<<<<<<< HEAD
-            self.set_phase()
-            self.epoch += 1 * self.train  # increase epoch count while training
-=======
             if not self.train:
                 checked_metric = self.metrics_tracker.metrics["val"]["bleu4"]
                 is_best, lr_r, es = self.check_improvement(checked_metric[-1])
@@ -446,4 +424,3 @@ class Trainer():
                 main_pb.close()
                 print(f"Early stop training at epoch {self.epoch}")
                 break
->>>>>>> UseTorch.text.vocab

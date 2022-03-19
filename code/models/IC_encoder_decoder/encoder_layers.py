@@ -24,7 +24,11 @@ class CNNFeedForward(nn.Module):
         dropout:            dropout value
                             float
         """
-        #  Two fc layers can also be described by two cnn with kernel_size=1.
+        # TODO:
+        # Need to be revisited. Not correct!
+        # Based on:
+        # https://github.com/RoyalSkye/Image-Caption/blob/e528b36b32fdc8175921ce60bb9a2c6cecafebb8/transformer.py#L73-L93
+        # Two fc layers can also be described by two cnn with kernel_size=1.
         # https://sebastianraschka.com/faq/docs/fc-to-conv.html#methods-2-convolution-with-1x1-kernels
         self.conv1 = nn.Conv1d(in_channels=encode_size,
                                out_channels=feedforward_dim,
