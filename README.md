@@ -11,6 +11,8 @@
 - [3. The Model](#3-the-model)
   - [3.1. Introduction](#31-introduction)
   - [3.2. Framework](#32-framework)
+  - [3.3. Training](#33-training)
+  - [3.4. Inference](#34-inference)
 - [4. References](#4-references)
 
 ## 1. Introduction
@@ -60,7 +62,16 @@ the annotations from
 `code/create_dataset.py` processes the images, tokenizes the captions text, and
 creates the vocabulary dictionary. The code also randomly split the data into
 train, validation, and test splits (We only have the train and validation
-splits). Then, it saves the images in `hdf5` files, tokenized captions in
+splits). Each of train, validation, and testing split contains 86300, 18494,
+and 18493 images respectively.
+
+In the dataset, each image has five or more captions. Five random captions are
+selected during dataset preparation if more than five are available. Also, I
+neglect the words which occur less than three times and replace them with the
+"UNKOWN" special token. Other special tokens are used: the "start of the
+sentence", the "end of the sentence", and the "pad" tokens.
+
+The script saves the images in `hdf5` files, tokenized captions in
 `JSON` files, and the vocabulary dictionary in a  `pth` file.
 
 To run the code the following arguments are needed:
@@ -188,14 +199,16 @@ Figure 1: Encoder Decoder Architecture
 ### 3.2. Framework
 
 The CPTR [[1]](#1) consists of an image patcher that converts images
-$x\in\mathbb{R}^{H\times W\times C}$ to a sequence of patches
-$x_p\in\mathbb{R}^{N(P^2\times E)}$, where $N$ is number of patches, $H$, $W$, $C$ are
-images height, width and number of chanel ($C=3$) respectively, $P$ is patch
-resolution, and $E$ is image embeddings size. Position embeddings are then added
-to the images patches, which form the input to twelve layers of identical
-transformer encoders. The output of the last encoder layer goes to four layers
-of identical transformer decoders. The decoder also takes words with sinusoid
-positional embedding.
+![x\in\mathbb{R}^{H\times W\times
+C}](https://latex.codecogs.com/svg.latex?x\in\mathbb{R}^{H\times%20W\times%20C})
+to a sequence of patches ![x_p\in\mathbb{R}^{N(P^2\times
+E)}](https://latex.codecogs.com/svg.latex?x_p\in\mathbb{R}^{N(P^2\times%20E)}),
+where _N_ is number of patches, _H_, _W_, _C_ are images height, width and
+number of chanel _C=3_ respectively, _P_ is patch resolution, and _E_ is image
+embeddings size. Position embeddings are then added to the images patches,
+which form the input to twelve layers of identical transformer encoders. The
+output of the last encoder layer goes to four layers of identical transformer
+decoders. The decoder also takes words with sinusoid positional embedding.
 
 The pre-trained ViT weights initialize the CPTR encoder [[1]](#1). I omitted
 the initialization and image positional embeddings, adding an image embedding
@@ -204,13 +217,62 @@ network [[7]](#7). The number of encoder layers is reduced to two. For
 Resenet101, I deleted the last two layers and the last softmax layer used for
 image classification.
 
-Another modification takes place at the encoder side. The feedforward network consists of two convolution layers with a RELU activation function in between. The encoder side deals solely with the image part, where it is beneficial to exploit the relative position of the features we have. Refer to Figure 2 for the model architecture.
+Another modification takes place at the encoder side. The feedforward network
+consists of two convolution layers with a RELU activation function in between.
+The encoder side deals solely with the image part, where it is beneficial to
+exploit the relative position of the features we have. Refer to Figure 2 for
+the model architecture.
 
 <img
 src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/Architectures.png"
 width="80%" padding="100px 100px 100px 10px">
 
 Figure 2: Model Architecture
+
+### 3.3. Training
+
+The transformer decoder output goes to one fully connected layer, which
+provides –-given the previous token–- a probability distribution
+(![\in\mathbb{R}^k](https://latex.codecogs.com/svg.latex?\in\mathbb{R}^k), *k*
+is vocabulary size) for each token in the sequence.
+
+I trained the model using cross-entropy loss given the target ground truth
+(![y_{1:T}](https://latex.codecogs.com/svg.latex?y_{1:T})) where _T_ is the
+length of the sequence. Also, I add the doubly stochastic attention
+regularization [[8]](#8) to the cross-entropy loss to penalize high weights in
+the encoder-decoder attention. This term encourages the summation of attention
+weights across the sequence to be approximatively equal to one. By doing so,
+the model will not concentrate on specific parts in the image when generating a
+caption. Instead, it will look all over the image, leading to a richer and more
+descriptive text [[8]](#8).
+
+The loss function is defined as:
+
+![\large L=-\sum_{c=1}^{T}{log\left(p\left(y_c\middle| y_{c-1}\right)\right)\ +\ \sum_{l=1}^{L}{\frac{1}{L}\left(\sum_{d=1}^{D}\sum_{i=1}^{P^2}\left(1-\sum_{c=1}^{T}\alpha_{cidl}\right)^2\right)}}](https://latex.codecogs.com/svg.latex?\large%20L=-\sum_{c=1}^{T}{log\left(p\left(y_c\middle|%20y_{c-1}\right)\right)\%20+\%20\sum_{l=1}^{L}{\frac{1}{L}\left(\sum_{d=1}^{D}\sum_{i=1}^{P^2}\left(1-\sum_{c=1}^{T}\alpha_{cidl}\right)^2\right)}})
+
+where _D_ is the number of heads and _L_ is the number of layers.
+
+I used Adam optimizer, with a batch size of thirty-two. The reader can find the
+model sizes in the configuration file `code/config.json`. Evaluation metrics
+used are Bleu [[9]](#9), METEOR [[10]](#10), and Gleu [[11]](#11).
+
+I trained the model for one hundred epochs, with stopping criteria if the
+tracked evaluation metric (bleu-4) does not improve for twenty successive
+epochs. Also, the learning rate is reduced by 0.25% if the tracked evaluation
+metric (bleu-4) does not improve for ten consecutive epochs. The evaluation of
+the model against the validation split takes place every two epochs.
+
+The pre-trained Glove embeddings [[12]](#12) initialize the word embedding
+weights. The words embeddings are frozen for ten epochs. The Resnet101 network
+is tuned from the beginning.
+
+### 3.4. Inference
+
+A beam search of size five is used to generate a caption for the images in the
+test split. The generation starts by feeding the image and the "start of
+sentence" special tokens. Then at each iteration, five tokens with the highest
+scores are chosen. The generation iteration stops when the "end of sentence" is
+generated or the max length limit is reached.
 
 
 ## 4. References
