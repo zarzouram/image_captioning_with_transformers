@@ -177,9 +177,7 @@ classification model (ViT) based on a classical transformer encoder showing a
 good performance [[6]](#6). Based on ViT, Wei Liu et al. present an image captioning
 model (CPTR) using an encoder-decoder transformer [[1]](#1). The source image is fed
 to the transformer encoder in sequence patches. Hence, one can treat the image
-captioning problem as a machine translation task.  This project is based on
-CPTR [[1]](#1), as discussed below. The project uses PyTorch as a deep learning
-framework.
+captioning problem as a machine translation task.
 
 <img
 src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/Encoder-Decoder.png"
@@ -189,8 +187,30 @@ Figure 1: Encoder Decoder Architecture
 
 ### 3.2. Framework
 
+The CPTR [[1]](#1) consists of an image patcher that converts images
+$x\in\mathbb{R}^{H\times W\times C}$ to a sequence of patches
+$x_p\in\mathbb{R}^{N(P^2\times E)}$, where $N$ is number of patches, $H$, $W$, $C$ are
+images height, width and number of chanel ($C=3$) respectively, $P$ is patch
+resolution, and $E$ is image embeddings size. Position embeddings are then added
+to the images patches, which form the input to twelve layers of identical
+transformer encoders. The output of the last encoder layer goes to four layers
+of identical transformer decoders. The decoder also takes words with sinusoid
+positional embedding.
 
+The pre-trained ViT weights initialize the CPTR encoder [[1]](#1). I omitted
+the initialization and image positional embeddings, adding an image embedding
+module to the image patcher using the features map extracted from the Resnet101
+network [[7]](#7). The number of encoder layers is reduced to two. For
+Resenet101, I deleted the last two layers and the last softmax layer used for
+image classification.
 
+Another modification takes place at the encoder side. The feedforward network consists of two convolution layers with a RELU activation function in between. The encoder side deals solely with the image part, where it is beneficial to exploit the relative position of the features we have. Refer to Figure 2 for the model architecture.
+
+<img
+src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/Architectures.png"
+width="80%" padding="100px 100px 100px 10px">
+
+Figure 2: Model Architecture
 
 
 ## 4. References
