@@ -333,7 +333,7 @@ of the lengths in the training set. See “code/experiment.ipynb Section 1.3”.
 
 <img
 src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/lens.png"
-width="80%" padding="100px 100px 100px 10px">
+padding="100px 100px 100px 10px">
 
 Figure 5: Generated caption's lengths distribution
 
@@ -453,10 +453,53 @@ to investigate this hypothesis and to understand if the limitations in
 interpreting the image semantics are introduced from the visual or from the
 language generation side.
 
-<p float="left">
-  <img src="/img1.png" width="100" />
-  <img src="/img2.png" width="100" />
-</p>
+<table>
+  <tr>
+    <td> <img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/aman.gif"/></td>
+    <td> <img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/adrygrass.gif"/> </td>
+  <tr>
+  <tr>
+    <td> <p align="center">Figure 7: Attention visualization for “a man” phrase</p></td>
+    <td> <p align="center">Figure 8: Attention visualization for “the dry grass” phrase</tp></td>
+  <tr>
+
+  <tr>
+    <td> <img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/aball.gif"/></td>
+    <td> <img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/alaptopcomputer.gif"/> </td>
+  <tr>
+  <tr>
+    <td> <p align="center">Figure 9: Attention visualization for “a ball” phrase</p></td>
+    <td> <p align="center">Figure 10: Attention visualization for “a laptop computer phrase</tp></td>
+  <tr>
+
+  <tr>
+    <td> <img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/sideofit.gif"/></td>
+    <td> <img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/redstopsign.gif"/> </td>
+  <tr>
+  <tr>
+    <td> <p align="center">Figure 11: Attention visualization for the generated caption “A tall building with a clock mounted on it’s side”</p></td>
+    <td> <p align="center">Figure 12:  Attention visualization for the generated caption “A red stop sign sitting on the side of a road”</tp></td>
+  <tr>
+
+  <tr>
+    <td> <img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/aboveit.gif"/></td>
+    <td> <img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/underawindow.gif"/> </td>
+  <tr>
+  <tr>
+    <td> <p align="center">Figure 13: Attention visualization for "above it" phrase</p></td>
+    <td> <p align="center">Figure 14: Attention visualization for “under the window” phrase</tp></td>
+  <tr>
+
+  <tr>
+    <td> <img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/cityview.gif"/></td>
+    <td> <img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/storewithsignsaboveit.gif"/> </td>
+  <tr>
+  <tr>
+    <td> <p align="center">Figure 15: Attention visualization for the generated caption "A view of a city skyline from above the water"</p></td>
+    <td> <p align="center">Figure 16: Attention visualization for the generated caption "A store with a lot of signs above it:</tp></td>
+  <tr>
+
+</table>
 
 ## 5. References
 
