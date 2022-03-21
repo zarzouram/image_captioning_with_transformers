@@ -2,13 +2,16 @@
 
 - [1. Introduction](#1-introduction)
 - [2. Run](#2-run)
-  - [2.1. Important note](#21-important-note)
+  - [2.1. **IMPORTANT NOTE**](#21-important-note)
   - [2.2. Requiremnts](#22-requiremnts)
   - [2.3. Create Dataset](#23-create-dataset)
   - [2.4. Train the model](#24-train-the-model)
   - [2.5. Testing the model](#25-testing-the-model)
   - [2.6. Analysis Notebook](#26-analysis-notebook)
-- [3. References](#3-references)
+- [3. The Model](#3-the-model)
+  - [3.1. Introduction](#31-introduction)
+  - [3.2. Framework](#32-framework)
+- [4. References](#4-references)
 
 ## 1. Introduction
 
@@ -25,9 +28,21 @@ below. The project uses PyTorch as a deep learning framework.
 
 ## 2. Run
 
-### 2.1. Important note
+### 2.1. **IMPORTANT NOTE**
 
-note
+PyTorch 1.8 provide the tranformer attention avereged across the heads. My
+impelemnetation needs the attention for each head, so I have changed the
+PyTorch implementation. I changed `torch/nn/functional.py` line 4818 from
+
+```python
+return attn_output, attn_output_weights.sum(dim=1) num_heads
+```
+
+to
+
+```python
+return attn_output, attn_output_weights
+```
 
 ### 2.2. Requiremnts
 
@@ -140,13 +155,94 @@ Section 2.0 in the notbook presents randomly selected samples from the `images/t
 <img src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/firefox_H4tRhSVOok.gif" width="80%" padding="100px 100px 100px 100px">
 
 
-## 3. References
+## 3. The Model
 
-<a id="1">[1]</a>
-Liu, W., Chen, S., Guo, L., Zhu, X., & Liu, J. (2021). CPTR: Full transformer
-network for image captioning. arXiv preprint
+### 3.1. Introduction
+
+This project uses a transformer [[3]](#3) based model to generate a description
+for images. This task is known as the Image Captioning task. Researchers used
+many methodologies to approach this problem. One of these methodologies is the
+encoder-decoder neural network [4]. The encoder transforms the source image
+into a representation space; then, the decoder translates the information from
+the encoded space into a natural language. The goal of the encoder-decoder is
+to minimize the loss of generating a description from an image.
+
+As shown in the survey done by MD Zakir Hossain et al. [[4]](#4), we can see that the
+models that use encoder-decoder architecture mainly consist of a language model
+based on LSTM [[5]](#5), which decodes the encoded image received from a CNN, see
+Figure 1.  The limitation of LSTM with long sequences and the success of
+transformers in machine translation and other NLP tasks attracts attention to
+utilizing it in machine vision. Alexey Dosovitskiy et al. introduce an image
+classification model (ViT) based on a classical transformer encoder showing a
+good performance [[6]](#6). Based on ViT, Wei Liu et al. present an image captioning
+model (CPTR) using an encoder-decoder transformer [[1]](#1). The source image is fed
+to the transformer encoder in sequence patches. Hence, one can treat the image
+captioning problem as a machine translation task.  This project is based on
+CPTR [[1]](#1), as discussed below. The project uses PyTorch as a deep learning
+framework.
+
+<img
+src="https://github.com/zarzouram/xformer_img_captnng/blob/main/images/report/Encoder-Decoder.png"
+width="80%" padding="100px 100px 100px 10px">
+
+Figure 1: Encoder Decoder Architecture
+
+### 3.2. Framework
+
+
+
+
+
+## 4. References
+
+<a id="1">[1]</a> Liu, W., Chen, S., Guo, L., Zhu, X., & Liu, J. (2021). CPTR:
+Full transformer network for image captioning. arXiv preprint
 [arXiv:2101.10804](https://arxiv.org/abs/2101.10804).
 
+<a id="2">[2]</a> Lin, T. Y., Maire, M., Belongie, S., Hays, J., Perona, P.,
+Ramanan, D., ... & Zitnick, C. L. (2014, September). Microsoft coco: Common
+objects in context. In European conference on computer vision (pp. 740-755).
+Springer, Cham.
 
-<a id="2">[2]</a>
-Lin, T. Y., Maire, M., Belongie, S., Hays, J., Perona, P., Ramanan, D., ... & Zitnick, C. L. (2014, September). Microsoft coco: Common objects in context. In European conference on computer vision (pp. 740-755). Springer, Cham.
+<a id="3">[3]</a> A. Vaswani et al., 'Attention is all you need', Advances in neural
+information processing systems, vol. 30, 2017.
+
+<a id="4">[4]</a> M. Z. Hossain, F. Sohel, M. F. Shiratuddin, and H. Laga, 'A Comprehensive
+Survey of Deep Learning for Image Captioning', arXiv:1810.04020 [cs, stat],
+Oct. 2018, Accessed: Mar. 03, 2022. [Online]. Available:
+http://arxiv.org/abs/1810.04020.
+
+<a id="5">[5]</a> S. Hochreiter and J. Schmidhuber, ‘Long short-term memory’, Neural
+computation, vol. 9, no. 8, pp. 1735–1780, 1997.
+
+<a id="6">[6]</a> A. Dosovitskiy et al., 'An image is worth 16x16 words: Transformers for
+image recognition at scale', arXiv preprint arXiv:2010.11929, 2020.
+
+<a id="7">[7]</a> K. He, X. Zhang, S. Ren, and J. Sun, 'Deep Residual Learning for Image
+Recognition', arXiv:1512.03385 [cs], Oct. 2015, Accessed: Mar. 06, 2022.
+[Online]. Available: http://arxiv.org/abs/1512.03385.
+
+<a id="8">[8]</a> K. Xu et al., 'Show, Attend and Tell: Neural Image Caption Generation with
+Visual Attention', arXiv:1502.03044 [cs], Apr. 2016, Accessed: Mar. 07, 2022.
+[Online]. Available: http://arxiv.org/abs/1502.03044.
+
+<a id="9">[9]</a> K. Papineni, S. Roukos, T. Ward, and W.-J. Zhu, 'Bleu: a method for
+automatic evaluation of machine translation', in Proceedings of the 40th annual
+meeting of the Association for Computational Linguistics, 2002, pp. 311–318.
+
+<a id="10">[10]</a> S. Banerjee and A. Lavie, 'METEOR: An automatic metric for MT evaluation
+with improved correlation with human judgments', in Proceedings of the acl
+workshop on intrinsic and extrinsic evaluation measures for machine translation
+and/or summarization, 2005, pp. 65–72.
+
+<a id="11">[11]</a> A. Mutton, M. Dras, S. Wan, and R. Dale, 'GLEU: Automatic evaluation of
+sentence-level fluency', in Proceedings of the 45th Annual Meeting of the
+Association of Computational Linguistics, 2007, pp. 344–351.
+
+<a id="12">[12]</a> J. Pennington, R. Socher, and C. D. Manning, 'Glove: Global vectors for
+word representation', in Proceedings of the 2014 conference on empirical
+methods in natural language processing (EMNLP), 2014, pp. 1532–1543.
+
+<a id="13">[13]</a> A. Karpathy and L. Fei-Fei, 'Deep visual-semantic alignments for
+generating image descriptions', in Proceedings of the IEEE conference on
+computer vision and pattern recognition, 2015, pp. 3128–3137.
