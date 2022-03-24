@@ -58,6 +58,9 @@ return attn_output, attn_output_weights
 The code was tested using python 3.8.12. Use `pip install -r requirements.txt`
 to install the required libraries.
 
+To run the cells under section "1.6.2 Examine Some Linguistcs Features" in the experiments
+notebook, download the Stanza english model. `stanza.download("en")`
+
 ### 2.3. Create Dataset
 
 The dataset that I used is MS COCO 2017 [[2]](#2). The train images can be downloaded
