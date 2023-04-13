@@ -26,7 +26,7 @@ class ImageEncoder(nn.Module):
                                       kernel_size=1,
                                       stride=1,
                                       bias=False)
-        self.bn = nn.BatchNorm2d(512)
+        self.bn = nn.BatchNorm2d(embed_dim)
         self.relu = nn.ReLU(inplace=True)
 
         # Resize images, use 2D adaptive max pooling
