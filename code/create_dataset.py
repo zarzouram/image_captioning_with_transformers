@@ -52,8 +52,10 @@ if __name__ == "__main__":
     # https://github.com/pytorch/text/blob/0169cde2f1d446ae886ef0be07e9a673585ed256/torchtext/vocab.py#L151
 
     vector_dir = Path(os.path.expanduser(args.vector_dir))
-    vector_name = list(vector_dir.glob("*.zip"))  # dir must have one zip file
-    vector_name = f"{vector_name[0].name.strip('.zip')}.{args.vector_dim}d"
+    vector_files = list(vector_dir.glob("*.zip"))  # dir must have one zip file
+    if not vector_files:
+        raise FileNotFoundError(f"No .zip vector file found in {vector_dir}")
+    vector_name = f"{vector_files[0].stem}.{args.vector_dim}d"
 
     # process annotation files
     print("Process annotation files...")
